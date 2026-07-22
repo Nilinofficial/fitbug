@@ -15,7 +15,6 @@ if (isExpoGo) {
 } else {
     Notifications.setNotificationHandler({
         handleNotification: async () => ({
-            shouldShowAlert: true,
             shouldPlaySound: true,
             shouldSetBadge: false,
             shouldShowBanner: true,
@@ -99,35 +98,6 @@ export const scheduleGymReminder = async (gymTime: string) => {
         });
     } catch (error) {
         console.warn("[reminders] Failed to schedule gym reminder", error);
-    }
-};
-
-/**
- * Fires a notification a few seconds from now, using the same channel/sound as the
- * real reminder. Useful for confirming permission + channel + sound actually work
- * without waiting for the next daily trigger to come around.
- */
-export const sendTestNotification = async (): Promise<boolean> => {
-    if (isExpoGo) return false;
-
-    try {
-        await ensureNotificationChannel();
-        await Notifications.scheduleNotificationAsync({
-            content: {
-                title: "Test notification 🔔",
-                body: "If you can see this, gym reminders are working correctly.",
-                sound: true,
-            },
-            trigger: {
-                type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-                seconds: 3,
-                channelId: CHANNEL_ID,
-            },
-        });
-        return true;
-    } catch (error) {
-        console.warn("[reminders] Failed to send test notification", error);
-        return false;
     }
 };
 

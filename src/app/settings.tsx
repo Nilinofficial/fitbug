@@ -5,7 +5,7 @@ import * as ImagePicker from "expo-image-picker";
 import * as Sharing from "expo-sharing";
 import type { ComponentProps, ReactNode } from "react";
 import { useState } from "react";
-import { Alert, Modal, Pressable, Switch, Text, TextInput, View } from "react-native";
+import { Alert, Linking, Modal, Pressable, Switch, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import appJson from "../../app.json";
@@ -25,7 +25,6 @@ import {
     cancelGymReminder,
     requestNotificationPermission,
     scheduleGymReminder,
-    sendTestNotification,
 } from "@/notifications/reminderNotifications";
 import { ThemePreference, useAppTheme } from "@/theme/ThemeProvider";
 import { ThemeTokens } from "@/theme/tokens";
@@ -78,6 +77,10 @@ const ACCOUNT_FIELDS: FieldConfig[] = [
         getValue: (profile) => String(profile.weight_kg),
     },
 ];
+
+const PRIVACY_POLICY_URL = "https://fitbug-website.vercel.app/privacy";
+const TERMS_URL = "https://fitbug-website.vercel.app/terms";
+const CONTACT_SUPPORT_URL = "https://www.instagram.com/bybug_";
 
 const THEME_OPTIONS: { label: string; value: ThemePreference }[] = [
     { label: "Light", value: "light" },
@@ -273,24 +276,6 @@ export default function SettingsScreen() {
         }
     };
 
-    const handleSendTestNotification = async () => {
-        const granted = await requestNotificationPermission();
-        if (!granted) {
-            Alert.alert(
-                "Permission needed",
-                "FitBug doesn't have notification permission. Enable notifications for FitBug in your device settings and try again."
-            );
-            return;
-        }
-
-        const sent = await sendTestNotification();
-        if (sent) {
-            setToastMessage("Test notification sent — check your notification shade");
-        } else {
-            Alert.alert("Couldn't send test notification", "Something went wrong. Please try again.");
-        }
-    };
-
     const handleExportData = async () => {
         try {
             const data = exportAllData();
@@ -474,14 +459,6 @@ export default function SettingsScreen() {
                                 onPress={openTimeEditor}
                                 colors={colors}
                             />
-                            <Divider colors={colors} />
-                            <SettingsRow
-                                icon="paper-plane-outline"
-                                label="Send Test Notification"
-                                value=""
-                                onPress={handleSendTestNotification}
-                                colors={colors}
-                            />
                         </>
                     ) : null}
                 </SectionCard>
@@ -501,11 +478,29 @@ export default function SettingsScreen() {
                 <SectionCard colors={colors}>
                     <SettingsRow icon="information-circle-outline" label="App Version" value={`v${appJson.expo.version}`} colors={colors} />
                     <Divider colors={colors} />
-                    <SettingsRow icon="lock-closed-outline" label="Privacy Policy" value="" onPress={() => {}} colors={colors} />
+                    <SettingsRow
+                        icon="lock-closed-outline"
+                        label="Privacy Policy"
+                        value=""
+                        onPress={() => Linking.openURL(PRIVACY_POLICY_URL)}
+                        colors={colors}
+                    />
                     <Divider colors={colors} />
-                    <SettingsRow icon="document-text-outline" label="Terms & Conditions" value="" onPress={() => {}} colors={colors} />
+                    <SettingsRow
+                        icon="document-text-outline"
+                        label="Terms & Conditions"
+                        value=""
+                        onPress={() => Linking.openURL(TERMS_URL)}
+                        colors={colors}
+                    />
                     <Divider colors={colors} />
-                    <SettingsRow icon="chatbubble-ellipses-outline" label="Contact Support" value="" onPress={() => {}} colors={colors} />
+                    <SettingsRow
+                        icon="chatbubble-ellipses-outline"
+                        label="Contact Support"
+                        value=""
+                        onPress={() => Linking.openURL(CONTACT_SUPPORT_URL)}
+                        colors={colors}
+                    />
                 </SectionCard>
             </ScreenContent>
 

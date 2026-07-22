@@ -18,7 +18,10 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.buglabsbynilin.fitbug"
+      "package": "com.buglabsbynilin.fitbug",
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "output": "static",
@@ -52,7 +55,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/images/icon.png",
+          "icon": "./assets/images/logo.png",
           "color": "#1263df"
         }
       ]
@@ -64,9 +67,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "2ebea02e-25c2-4b2c-bb71-335988af3277"
+        "projectId": "a06abc1e-aec8-4524-bdb6-aa0a50fa8dbe"
       }
     },
-    "owner": "buglabsbynilins-team"
+    "owner": "buglabsbynilin"
   }
 }
