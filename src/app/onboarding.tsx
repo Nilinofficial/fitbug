@@ -1,30 +1,65 @@
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import * as ImagePicker from "expo-image-picker";
 import { useState } from "react";
 import { ImageBackground, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import onboardingImage from "@/assets/images/onboarding.png";
+import Avatar from "@/components/custom/Avatar";
+import TimeStepper from "@/components/custom/TimeStepper";
 import { Fonts } from "@/constants/fonts";
 import { Spacing } from "@/constants/spacing";
-import { saveProfile } from "@/db/profile";
+import { Gender, saveProfile } from "@/db/profile";
+import { formatReminderTime } from "@/lib/format";
+import { requestNotificationPermission, scheduleGymReminder } from "@/notifications/reminderNotifications";
+import { useAppTheme } from "@/theme/ThemeProvider";
 
 const MIN_AGE = 1;
 const MAX_AGE = 120;
 
+const GENDER_OPTIONS: { label: string; value: Gender }[] = [
+    { label: "Male", value: "male" },
+    { label: "Female", value: "female" },
+];
+
 export default function OnboardingScreen() {
     const router = useRouter();
+    const { colors } = useAppTheme();
     const [username, setUsername] = useState("");
     const [age, setAge] = useState(25);
     const [height, setHeight] = useState("");
     const [weight, setWeight] = useState("");
+    const [gender, setGender] = useState<Gender>("male");
+    const [profilePicture, setProfilePicture] = useState<string | null>(null);
+    const [reminderHour, setReminderHour] = useState(18);
+    const [reminderMinute, setReminderMinute] = useState(0);
     const [error, setError] = useState("");
 
     const handleAdjustAge = (delta: number) => {
         setAge((prev) => Math.min(MAX_AGE, Math.max(MIN_AGE, prev + delta)));
     };
 
-    const handleSubmit = () => {
+    const handlePickPhoto = async () => {
+        const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!permission.granted) {
+            setError("Photo library permission is required to set a profile picture.");
+            return;
+        }
+
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ["images"],
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.6,
+        });
+
+        if (!result.canceled && result.assets[0]) {
+            setProfilePicture(result.assets[0].uri);
+        }
+    };
+
+    const handleSubmit = async () => {
         const name = username.trim();
         const heightValue = Number(height);
         const weightValue = Number(weight);
@@ -42,12 +77,27 @@ export default function OnboardingScreen() {
             return;
         }
 
-        saveProfile({ name, age, weightKg: weightValue, heightCm: heightValue });
+        const reminderTime = formatReminderTime(reminderHour, reminderMinute);
+        saveProfile({
+            name,
+            age,
+            weightKg: weightValue,
+            heightCm: heightValue,
+            reminderTime,
+            remindersEnabled: true,
+            theme: "system",
+            gender,
+            profilePicture,
+        });
+
+        const granted = await requestNotificationPermission();
+        if (granted) await scheduleGymReminder(reminderTime);
+
         router.replace("/");
     };
 
     return (
-        <SafeAreaView style={{ flex: 1, backgroundColor: "#F5F6FA" }}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
             <ScrollView
                 style={{ flex: 1 }}
                 contentContainerStyle={{
@@ -69,7 +119,7 @@ export default function OnboardingScreen() {
                 <View style={{ gap: 6, alignItems: "center" }}>
                     <Text
                         style={{
-                            color: "#20242d",
+                            color: colors.textPrimary,
                             fontSize: 26,
                             fontFamily: Fonts.bold,
                             textAlign: "center",
@@ -79,7 +129,7 @@ export default function OnboardingScreen() {
                     </Text>
                     <Text
                         style={{
-                            color: "#9599a5",
+                            color: colors.textSecondary,
                             fontSize: 14,
                             fontFamily: Fonts.regular,
                             textAlign: "center",
@@ -89,15 +139,92 @@ export default function OnboardingScreen() {
                     </Text>
                 </View>
 
+                <View style={{ alignItems: "center", gap: 10 }}>
+                    <Pressable onPress={handlePickPhoto}>
+                        <Avatar uri={profilePicture} gender={gender} size={88} />
+                        <View
+                            style={{
+                                position: "absolute",
+                                right: 0,
+                                bottom: 0,
+                                width: 28,
+                                height: 28,
+                                borderRadius: 14,
+                                backgroundColor: "#1263df",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                borderWidth: 2,
+                                borderColor: colors.background,
+                            }}
+                        >
+                            <Ionicons name="camera" size={14} color="#ffffff" />
+                        </View>
+                    </Pressable>
+                    <Text style={{ color: colors.textSecondary, fontSize: 12, fontFamily: Fonts.regular }}>
+                        {profilePicture ? "Tap to change photo" : "Add a profile photo (optional)"}
+                    </Text>
+                </View>
+
                 <View
                     style={{
-                        backgroundColor: "#ffffff",
+                        backgroundColor: colors.surface,
+                        borderRadius: 20,
+                        padding: 16,
+                        gap: 10,
+                    }}
+                >
+                    <Text style={{ color: colors.textPrimary, fontSize: 13, fontFamily: Fonts.medium }}>
+                        Gender
+                    </Text>
+                    <View style={{ flexDirection: "row", gap: 10 }}>
+                        {GENDER_OPTIONS.map((option) => {
+                            const selected = gender === option.value;
+                            return (
+                                <Pressable
+                                    key={option.value}
+                                    onPress={() => setGender(option.value)}
+                                    style={{
+                                        flex: 1,
+                                        flexDirection: "row",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        gap: 6,
+                                        paddingVertical: 12,
+                                        borderRadius: 14,
+                                        backgroundColor: selected ? colors.tintBlueBg : colors.surfaceMuted,
+                                        borderWidth: selected ? 1 : 0,
+                                        borderColor: "#1263df",
+                                    }}
+                                >
+                                    <Ionicons
+                                        name={option.value === "female" ? "woman" : "man"}
+                                        size={16}
+                                        color={selected ? "#1263df" : colors.textSecondary}
+                                    />
+                                    <Text
+                                        style={{
+                                            color: selected ? "#1263df" : colors.textSecondary,
+                                            fontSize: 13,
+                                            fontFamily: selected ? Fonts.bold : Fonts.medium,
+                                        }}
+                                    >
+                                        {option.label}
+                                    </Text>
+                                </Pressable>
+                            );
+                        })}
+                    </View>
+                </View>
+
+                <View
+                    style={{
+                        backgroundColor: colors.surface,
                         borderRadius: 20,
                         padding: 16,
                         gap: 6,
                     }}
                 >
-                    <Text style={{ color: "#20242d", fontSize: 13, fontFamily: Fonts.medium }}>
+                    <Text style={{ color: colors.textPrimary, fontSize: 13, fontFamily: Fonts.medium }}>
                         Username
                     </Text>
                     <View
@@ -105,22 +232,22 @@ export default function OnboardingScreen() {
                             flexDirection: "row",
                             alignItems: "center",
                             gap: 10,
-                            backgroundColor: "#EDEEF2",
+                            backgroundColor: colors.surfaceMuted,
                             borderRadius: 14,
                             paddingHorizontal: 14,
                         }}
                     >
-                        <Ionicons name="person-outline" size={18} color="#60646C" />
+                        <Ionicons name="person-outline" size={18} color={colors.textSecondary} />
                         <TextInput
                             value={username}
                             onChangeText={setUsername}
                             placeholder="e.g. fitness_warrior"
-                            placeholderTextColor="#9599a5"
+                            placeholderTextColor={colors.textSecondary}
                             autoCapitalize="none"
                             style={{
                                 flex: 1,
                                 paddingVertical: 14,
-                                color: "#20242d",
+                                color: colors.textPrimary,
                                 fontSize: 15,
                                 fontFamily: Fonts.regular,
                             }}
@@ -194,11 +321,54 @@ export default function OnboardingScreen() {
                     </View>
                 </View>
 
+                <View
+                    style={{
+                        backgroundColor: colors.surface,
+                        borderRadius: 20,
+                        padding: 16,
+                        gap: 14,
+                    }}
+                >
+                    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                            <View
+                                style={{
+                                    width: 28,
+                                    height: 28,
+                                    borderRadius: 14,
+                                    backgroundColor: colors.tintBlueBg,
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                }}
+                            >
+                                <Ionicons name="alarm-outline" size={16} color="#1263df" />
+                            </View>
+                            <Text style={{ color: colors.textPrimary, fontSize: 14, fontFamily: Fonts.bold }}>
+                                Gym Time
+                            </Text>
+                        </View>
+                        <Text style={{ color: colors.textSecondary, fontSize: 12, fontFamily: Fonts.medium }}>
+                            daily
+                        </Text>
+                    </View>
+
+                    <TimeStepper
+                        hour24={reminderHour}
+                        minute={reminderMinute}
+                        onChange={(hour, minute) => {
+                            setReminderHour(hour);
+                            setReminderMinute(minute);
+                        }}
+                        textColor={colors.textPrimary}
+                        buttonBg={colors.surfaceMuted}
+                    />
+                </View>
+
                 <View style={{ flexDirection: "row", gap: 12 }}>
                     <View
                         style={{
                             flex: 1,
-                            backgroundColor: "#ffffff",
+                            backgroundColor: colors.surface,
                             borderRadius: 20,
                             padding: 16,
                             gap: 10,
@@ -210,7 +380,7 @@ export default function OnboardingScreen() {
                                     width: 36,
                                     height: 36,
                                     borderRadius: 18,
-                                    backgroundColor: "#EAF1FE",
+                                    backgroundColor: colors.tintBlueBg,
                                     alignItems: "center",
                                     justifyContent: "center",
                                 }}
@@ -219,18 +389,18 @@ export default function OnboardingScreen() {
                             </View>
                             <View
                                 style={{
-                                    backgroundColor: "#F0F0F3",
+                                    backgroundColor: colors.surfaceMuted,
                                     borderRadius: 12,
                                     paddingHorizontal: 10,
                                     paddingVertical: 4,
                                 }}
                             >
-                                <Text style={{ color: "#4b4f58", fontSize: 11, fontFamily: Fonts.bold }}>
+                                <Text style={{ color: colors.textSecondary, fontSize: 11, fontFamily: Fonts.bold }}>
                                     CM
                                 </Text>
                             </View>
                         </View>
-                        <Text style={{ color: "#20242d", fontSize: 14, fontFamily: Fonts.medium }}>
+                        <Text style={{ color: colors.textPrimary, fontSize: 14, fontFamily: Fonts.medium }}>
                             Height
                         </Text>
                         <TextInput
@@ -251,7 +421,7 @@ export default function OnboardingScreen() {
                     <View
                         style={{
                             flex: 1,
-                            backgroundColor: "#ffffff",
+                            backgroundColor: colors.surface,
                             borderRadius: 20,
                             padding: 16,
                             gap: 10,
@@ -263,7 +433,7 @@ export default function OnboardingScreen() {
                                     width: 36,
                                     height: 36,
                                     borderRadius: 18,
-                                    backgroundColor: "#FFF1E6",
+                                    backgroundColor: colors.tintOrangeBg,
                                     alignItems: "center",
                                     justifyContent: "center",
                                 }}
@@ -272,18 +442,18 @@ export default function OnboardingScreen() {
                             </View>
                             <View
                                 style={{
-                                    backgroundColor: "#F0F0F3",
+                                    backgroundColor: colors.surfaceMuted,
                                     borderRadius: 12,
                                     paddingHorizontal: 10,
                                     paddingVertical: 4,
                                 }}
                             >
-                                <Text style={{ color: "#4b4f58", fontSize: 11, fontFamily: Fonts.bold }}>
+                                <Text style={{ color: colors.textSecondary, fontSize: 11, fontFamily: Fonts.bold }}>
                                     KG
                                 </Text>
                             </View>
                         </View>
-                        <Text style={{ color: "#20242d", fontSize: 14, fontFamily: Fonts.medium }}>
+                        <Text style={{ color: colors.textPrimary, fontSize: 14, fontFamily: Fonts.medium }}>
                             Weight
                         </Text>
                         <TextInput
@@ -358,7 +528,7 @@ export default function OnboardingScreen() {
                     </Text>
                 </Pressable>
 
-                <Text style={{ color: "#9599a5", fontSize: 12, fontFamily: Fonts.regular, textAlign: "center" }}>
+                <Text style={{ color: colors.textSecondary, fontSize: 12, fontFamily: Fonts.regular, textAlign: "center" }}>
                     By continuing, you agree to our{" "}
                     <Text style={{ color: "#1263df", fontFamily: Fonts.medium }}>Terms & Privacy</Text>.
                 </Text>

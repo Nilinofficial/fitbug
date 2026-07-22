@@ -18,6 +18,11 @@ db.execSync(`
     age INTEGER NOT NULL,
     weight_kg REAL NOT NULL,
     height_cm REAL NOT NULL,
+    reminder_time TEXT NOT NULL DEFAULT '18:00',
+    reminders_enabled INTEGER NOT NULL DEFAULT 1,
+    theme TEXT NOT NULL DEFAULT 'system',
+    gender TEXT NOT NULL DEFAULT 'male',
+    profile_picture TEXT,
     created_at TEXT NOT NULL
   );
   CREATE TABLE IF NOT EXISTS workouts (
@@ -48,16 +53,23 @@ db.execSync(`
     muscle_groups TEXT NOT NULL,
     created_at TEXT NOT NULL
   );
-  CREATE TABLE IF NOT EXISTS custom_workout_exercises (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    custom_workout_id INTEGER NOT NULL REFERENCES custom_workouts(id),
-    template_id TEXT NOT NULL,
-    name TEXT NOT NULL,
-    equipment TEXT NOT NULL,
-    muscle TEXT NOT NULL,
-    target_sets INTEGER NOT NULL,
-    target_reps_min INTEGER NOT NULL,
-    target_reps_max INTEGER NOT NULL,
-    position INTEGER NOT NULL
-  );
 `);
+
+// Additive migration for installs whose profile table predates reminder_time/reminders_enabled
+// (already has "age" so wasn't dropped above) — ALTER TABLE keeps existing profile data intact.
+const profileColumnsAfterCreate = db.getAllSync<{ name: string }>("PRAGMA table_info(profile)");
+if (!profileColumnsAfterCreate.some((column) => column.name === "reminder_time")) {
+    db.execSync("ALTER TABLE profile ADD COLUMN reminder_time TEXT NOT NULL DEFAULT '18:00';");
+}
+if (!profileColumnsAfterCreate.some((column) => column.name === "reminders_enabled")) {
+    db.execSync("ALTER TABLE profile ADD COLUMN reminders_enabled INTEGER NOT NULL DEFAULT 1;");
+}
+if (!profileColumnsAfterCreate.some((column) => column.name === "theme")) {
+    db.execSync("ALTER TABLE profile ADD COLUMN theme TEXT NOT NULL DEFAULT 'system';");
+}
+if (!profileColumnsAfterCreate.some((column) => column.name === "gender")) {
+    db.execSync("ALTER TABLE profile ADD COLUMN gender TEXT NOT NULL DEFAULT 'male';");
+}
+if (!profileColumnsAfterCreate.some((column) => column.name === "profile_picture")) {
+    db.execSync("ALTER TABLE profile ADD COLUMN profile_picture TEXT;");
+}

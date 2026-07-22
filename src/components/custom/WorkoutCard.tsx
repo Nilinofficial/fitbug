@@ -4,13 +4,15 @@ import { useRouter } from "expo-router";
 import { Pressable, Text, View } from "react-native";
 
 import { Fonts } from "@/constants/fonts";
+import { useAppTheme } from "@/theme/ThemeProvider";
 
 const WorkoutCard = () => {
     const router = useRouter();
+    const { colors } = useAppTheme();
 
     return (
         <LinearGradient
-            colors={["#F3EFFE", "#EAF2FE"]}
+            colors={[colors.gradientStart, colors.gradientEnd]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={{
@@ -30,7 +32,7 @@ const WorkoutCard = () => {
                     <Text
                         selectable
                         style={{
-                            color: "#20242d",
+                            color: colors.textPrimary,
                             fontSize: 18,
                             fontFamily: Fonts.bold,
                         }}
@@ -40,7 +42,7 @@ const WorkoutCard = () => {
                     <Text
                         selectable
                         style={{
-                            color: "#9599a5",
+                            color: colors.textSecondary,
                             fontSize: 13,
                             fontFamily: Fonts.regular,
                         }}
@@ -54,7 +56,7 @@ const WorkoutCard = () => {
                         width: 52,
                         height: 52,
                         borderRadius: 26,
-                        backgroundColor: "#E4DEFB",
+                        backgroundColor: colors.tintBlueBg,
                         alignItems: "center",
                         justifyContent: "center",
                     }}

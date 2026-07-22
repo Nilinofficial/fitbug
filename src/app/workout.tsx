@@ -1,18 +1,21 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import avatar from "@/assets/images/avatar.png";
-import ExercisePicker from "@/components/custom/ExercisePicker";
+import logo from "@/assets/images/logo.png";
+import ExercisePicker, { parseCustomWorkoutTemplateId } from "@/components/custom/ExercisePicker";
 import ExerciseTrackerCard from "@/components/custom/ExerciseTrackerCard";
 import { EXERCISE_LIBRARY } from "@/constants/exercises";
 import { Fonts } from "@/constants/fonts";
 import { Spacing } from "@/constants/spacing";
-import { getCustomWorkoutExercises } from "@/db/customWorkouts";
+import { getCustomWorkoutById } from "@/db/customWorkouts";
+import { getProfile } from "@/db/profile";
 import { saveWorkout } from "@/db/workouts";
+import { MONTHS } from "@/lib/format";
+import { useAppTheme } from "@/theme/ThemeProvider";
 import { SetEntry, WorkoutExercise } from "@/types/workout";
 
 const createSet = (overrides?: Partial<SetEntry>): SetEntry => ({
@@ -29,20 +32,43 @@ const formatElapsed = (totalSeconds: number) => {
     return `${hours}:${minutes}:${seconds}`;
 };
 
+const MIN_DURATION_MINUTES = 5;
+
+const formatBackfillDate = (dateStr: string) => {
+    const [year, month, day] = dateStr.split("-").map(Number);
+    return `${MONTHS[month - 1].slice(0, 3)} ${day}, ${year}`;
+};
+
+const getDefaultStartTime = (): { hour: number; minute: number } => {
+    const reminderTime = getProfile()?.reminder_time;
+    if (reminderTime) {
+        const [hour, minute] = reminderTime.split(":").map(Number);
+        if (!Number.isNaN(hour) && !Number.isNaN(minute)) return { hour, minute };
+    }
+    return { hour: 18, minute: 0 };
+};
+
 export default function WorkoutScreen() {
     const router = useRouter();
+    const { colors } = useAppTheme();
+    const { date } = useLocalSearchParams<{ date?: string }>();
+    const isBackfill = Boolean(date);
+
     const [exercises, setExercises] = useState<WorkoutExercise[]>([]);
     const [pickerOpen, setPickerOpen] = useState(true);
     const [selectedTemplateIds, setSelectedTemplateIds] = useState<string[]>([]);
     const [startedAt] = useState(() => Date.now());
     const [elapsedSeconds, setElapsedSeconds] = useState(0);
+    const [{ hour: startHour, minute: startMinute }] = useState(getDefaultStartTime);
+    const [durationMinutes, setDurationMinutes] = useState(45);
 
     useEffect(() => {
+        if (isBackfill) return;
         const interval = setInterval(() => {
             setElapsedSeconds(Math.floor((Date.now() - startedAt) / 1000));
         }, 1000);
         return () => clearInterval(interval);
-    }, [startedAt]);
+    }, [startedAt, isBackfill]);
 
     const handleToggleSelect = (templateId: string) => {
         setSelectedTemplateIds((prev) =>
@@ -57,30 +83,37 @@ export default function WorkoutScreen() {
         setPickerOpen(true);
     };
 
-    const handleSelectRoutine = (customWorkoutId: number) => {
-        const routineTemplateIds = getCustomWorkoutExercises(customWorkoutId)
-            .map((exercise) => exercise.templateId)
-            .filter((templateId) => !exercises.some((exercise) => exercise.templateId === templateId));
-
-        setSelectedTemplateIds((prev) =>
-            Array.from(new Set([...prev, ...routineTemplateIds]))
-        );
-    };
-
     const handleBeginWorkout = () => {
         if (selectedTemplateIds.length === 0) return;
 
         const newExercises: WorkoutExercise[] = selectedTemplateIds
-            .map((templateId) => EXERCISE_LIBRARY.find((template) => template.id === templateId))
-            .filter((template): template is (typeof EXERCISE_LIBRARY)[number] => Boolean(template))
-            .map((template) => ({
-                instanceId: `${template.id}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-                templateId: template.id,
-                name: template.name,
-                equipment: template.equipment,
-                muscle: template.muscle,
-                sets: [createSet()],
-            }));
+            .map((templateId): WorkoutExercise | null => {
+                const customId = parseCustomWorkoutTemplateId(templateId);
+                if (customId !== null) {
+                    const routine = getCustomWorkoutById(customId);
+                    if (!routine) return null;
+                    return {
+                        instanceId: `${templateId}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+                        templateId,
+                        name: routine.name,
+                        equipment: "Custom",
+                        muscle: routine.muscleGroups.length > 0 ? routine.muscleGroups.join(", ") : "Custom Workout",
+                        sets: [createSet()],
+                    };
+                }
+
+                const template = EXERCISE_LIBRARY.find((item) => item.id === templateId);
+                if (!template) return null;
+                return {
+                    instanceId: `${template.id}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+                    templateId: template.id,
+                    name: template.name,
+                    equipment: template.equipment,
+                    muscle: template.muscle,
+                    sets: [createSet()],
+                };
+            })
+            .filter((exercise): exercise is WorkoutExercise => exercise !== null);
 
         setExercises((prev) => [...prev, ...newExercises]);
         setSelectedTemplateIds([]);
@@ -135,6 +168,26 @@ export default function WorkoutScreen() {
         );
     };
 
+    const handleSetValue = (
+        instanceId: string,
+        setId: string,
+        field: "weight" | "reps",
+        value: number
+    ) => {
+        setExercises((prev) =>
+            prev.map((exercise) =>
+                exercise.instanceId === instanceId
+                    ? {
+                          ...exercise,
+                          sets: exercise.sets.map((set) =>
+                              set.id === setId ? { ...set, [field]: Math.max(0, value) } : set
+                          ),
+                      }
+                    : exercise
+            )
+        );
+    };
+
     const handleRemoveExercise = (instanceId: string) => {
         setExercises((prev) => {
             const next = prev.filter((exercise) => exercise.instanceId !== instanceId);
@@ -154,12 +207,19 @@ export default function WorkoutScreen() {
     };
 
     const handleFinishWorkout = () => {
-        saveWorkout({ startedAt, finishedAt: Date.now(), exercises });
+        if (isBackfill && date) {
+            const [year, month, day] = date.split("-").map(Number);
+            const backfillStartedAt = new Date(year, month - 1, day, startHour, startMinute, 0, 0).getTime();
+            const backfillFinishedAt = backfillStartedAt + durationMinutes * 60000;
+            saveWorkout({ startedAt: backfillStartedAt, finishedAt: backfillFinishedAt, exercises });
+        } else {
+            saveWorkout({ startedAt, finishedAt: Date.now(), exercises });
+        }
         router.back();
     };
 
     return (
-        <SafeAreaView style={{ flex: 1, backgroundColor: "#F5F6FA" }}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
             {pickerOpen ? (
                 <View
                     style={{
@@ -172,7 +232,7 @@ export default function WorkoutScreen() {
                 >
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
                         <Pressable onPress={handleClose} hitSlop={8}>
-                            <Ionicons name="arrow-back" size={24} color="#20242d" />
+                            <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
                         </Pressable>
                         <Text style={{ color: "#1263df", fontSize: 20, fontFamily: Fonts.bold }}>
                             Workout Setup
@@ -180,7 +240,7 @@ export default function WorkoutScreen() {
                     </View>
 
                     <Image
-                        source={avatar}
+                        source={logo}
                         contentFit="cover"
                         style={{ width: 36, height: 36, borderRadius: 18 }}
                     />
@@ -201,25 +261,25 @@ export default function WorkoutScreen() {
                             width: 36,
                             height: 36,
                             borderRadius: 18,
-                            backgroundColor: "#ffffff",
+                            backgroundColor: colors.surface,
                             alignItems: "center",
                             justifyContent: "center",
                         }}
                     >
-                        <Ionicons name="close" size={20} color="#20242d" />
+                        <Ionicons name="close" size={20} color={colors.textPrimary} />
                     </Pressable>
 
                     <View style={{ alignItems: "center" }}>
-                        <Text style={{ color: "#20242d", fontSize: 16, fontFamily: Fonts.bold }}>
+                        <Text style={{ color: colors.textPrimary, fontSize: 16, fontFamily: Fonts.bold }}>
                             New Workout
                         </Text>
                         <Text style={{ color: "#1263df", fontSize: 12, fontFamily: Fonts.medium }}>
-                            {formatElapsed(elapsedSeconds)}
+                            {isBackfill && date ? formatBackfillDate(date) : formatElapsed(elapsedSeconds)}
                         </Text>
                     </View>
 
                     <Pressable hitSlop={8}>
-                        <Ionicons name="ellipsis-horizontal" size={22} color="#20242d" />
+                        <Ionicons name="ellipsis-horizontal" size={22} color={colors.textPrimary} />
                     </Pressable>
                 </View>
             )}
@@ -238,7 +298,7 @@ export default function WorkoutScreen() {
                             selectedIds={selectedTemplateIds}
                             onToggle={handleToggleSelect}
                             excludeIds={exercises.map((exercise) => exercise.templateId)}
-                            onSelectRoutine={handleSelectRoutine}
+                            showCustomWorkouts
                         />
                     </ScrollView>
 
@@ -280,6 +340,67 @@ export default function WorkoutScreen() {
                         }}
                         showsVerticalScrollIndicator={false}
                     >
+        {isBackfill ? (
+                            <View
+                                style={{
+                                    backgroundColor: colors.surface,
+                                    borderRadius: 20,
+                                    padding: 16,
+                                    gap: 14,
+                                }}
+                            >
+                                <Text style={{ color: colors.textPrimary, fontSize: 15, fontFamily: Fonts.bold }}>
+                                    Session
+                                </Text>
+
+                                <View style={{ gap: 8 }}>
+                                    <Text style={{ color: colors.textSecondary, fontSize: 12, fontFamily: Fonts.medium }}>
+                                        Duration
+                                    </Text>
+                                    <View
+                                        style={{
+                                            flexDirection: "row",
+                                            alignItems: "center",
+                                            justifyContent: "center",
+                                            gap: 16,
+                                        }}
+                                    >
+                                        <Pressable
+                                            onPress={() =>
+                                                setDurationMinutes((prev) => Math.max(MIN_DURATION_MINUTES, prev - 5))
+                                            }
+                                            style={{
+                                                width: 30,
+                                                height: 30,
+                                                borderRadius: 15,
+                                                backgroundColor: colors.surfaceMuted,
+                                                alignItems: "center",
+                                                justifyContent: "center",
+                                            }}
+                                        >
+                                            <Ionicons name="remove" size={16} color={colors.textPrimary} />
+                                        </Pressable>
+                                        <Text style={{ color: colors.textPrimary, fontSize: 20, fontFamily: Fonts.bold, minWidth: 70, textAlign: "center" }}>
+                                            {durationMinutes} min
+                                        </Text>
+                                        <Pressable
+                                            onPress={() => setDurationMinutes((prev) => prev + 5)}
+                                            style={{
+                                                width: 30,
+                                                height: 30,
+                                                borderRadius: 15,
+                                                backgroundColor: colors.surfaceMuted,
+                                                alignItems: "center",
+                                                justifyContent: "center",
+                                            }}
+                                        >
+                                            <Ionicons name="add" size={16} color={colors.textPrimary} />
+                                        </Pressable>
+                                    </View>
+                                </View>
+                            </View>
+                        ) : null}
+
                         {exercises.map((exercise) => (
                             <ExerciseTrackerCard
                                 key={exercise.instanceId}
@@ -288,6 +409,9 @@ export default function WorkoutScreen() {
                                 onRepeatLastSet={() => handleRepeatPrevious(exercise.instanceId)}
                                 onUpdateSet={(setId, field, delta) =>
                                     handleUpdateSet(exercise.instanceId, setId, field, delta)
+                                }
+                                onSetValue={(setId, field, value) =>
+                                    handleSetValue(exercise.instanceId, setId, field, value)
                                 }
                                 onRemove={() => handleRemoveExercise(exercise.instanceId)}
                             />
@@ -302,13 +426,13 @@ export default function WorkoutScreen() {
                                 gap: 8,
                                 borderRadius: 16,
                                 borderWidth: 1,
-                                borderColor: "#D8DBE3",
+                                borderColor: colors.border,
                                 paddingVertical: 14,
-                                backgroundColor: "#F0F0F3",
+                                backgroundColor: colors.surfaceMuted,
                             }}
                         >
-                            <Ionicons name="add-circle-outline" size={18} color="#20242d" />
-                            <Text style={{ color: "#20242d", fontSize: 14, fontFamily: Fonts.bold }}>
+                            <Ionicons name="add-circle-outline" size={18} color={colors.textPrimary} />
+                            <Text style={{ color: colors.textPrimary, fontSize: 14, fontFamily: Fonts.bold }}>
                                 Add Exercise
                             </Text>
                         </Pressable>
@@ -330,7 +454,7 @@ export default function WorkoutScreen() {
                             }}
                         >
                             <Text style={{ color: "#ffffff", fontSize: 16, fontFamily: Fonts.bold }}>
-                                Finish Workout
+                                {isBackfill ? "Save Workout" : "Finish Workout"}
                             </Text>
                         </Pressable>
                     </View>

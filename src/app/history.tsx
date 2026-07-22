@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
+import { useRouter } from "expo-router";
+import { useMemo, useState } from "react";
 import { Alert, Pressable, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -11,7 +11,9 @@ import ScreenContent from "@/components/wrappers/ScreenWrapper";
 import { Fonts } from "@/constants/fonts";
 import { getProfile } from "@/db/profile";
 import { deleteWorkout, getWorkoutHistory, WorkoutSummary } from "@/db/workouts";
+import { useFocusRefresh } from "@/hooks/use-focus-refresh";
 import { formatDate, formatMonthYear, formatTime } from "@/lib/format";
+import { useAppTheme } from "@/theme/ThemeProvider";
 
 type Group = { monthLabel: string; workouts: WorkoutSummary[] };
 
@@ -27,14 +29,11 @@ const groupByMonth = (history: WorkoutSummary[]): Group[] => {
 
 export default function HistoryScreen() {
     const router = useRouter();
+    const { colors } = useAppTheme();
     const [history, setHistory] = useState<WorkoutSummary[]>(() => getWorkoutHistory());
     const profile = useMemo(() => getProfile(), []);
 
-    useFocusEffect(
-        useCallback(() => {
-            setHistory(getWorkoutHistory());
-        }, [])
-    );
+    useFocusRefresh(() => setHistory(getWorkoutHistory()));
 
     const groups = useMemo(() => groupByMonth(history), [history]);
 
@@ -57,15 +56,15 @@ export default function HistoryScreen() {
     };
 
     return (
-        <SafeAreaView style={{ flex: 1, backgroundColor: "#F5F6FA" }}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
             <ScreenContent>
                 <Header />
 
                 <View style={{ marginTop: 16, marginBottom: 20, gap: 4 }}>
-                    <Text style={{ color: "#20242d", fontSize: 26, fontFamily: Fonts.bold }}>
+                    <Text style={{ color: colors.textPrimary, fontSize: 26, fontFamily: Fonts.bold }}>
                         Workout History
                     </Text>
-                    <Text style={{ color: "#9599a5", fontSize: 14, fontFamily: Fonts.regular }}>
+                    <Text style={{ color: colors.textSecondary, fontSize: 14, fontFamily: Fonts.regular }}>
                         Review your past strength training performance.
                     </Text>
                 </View>
@@ -73,12 +72,12 @@ export default function HistoryScreen() {
                 {groups.length === 0 ? (
                     <View
                         style={{
-                            backgroundColor: "#ffffff",
+                            backgroundColor: colors.surface,
                             borderRadius: 16,
                             padding: 16,
                         }}
                     >
-                        <Text style={{ color: "#9599a5", fontSize: 13, fontFamily: Fonts.regular }}>
+                        <Text style={{ color: colors.textSecondary, fontSize: 13, fontFamily: Fonts.regular }}>
                             No workouts yet — start one from Home.
                         </Text>
                     </View>
@@ -93,10 +92,10 @@ export default function HistoryScreen() {
                                     marginBottom: 12,
                                 }}
                             >
-                                <Text style={{ color: "#20242d", fontSize: 16, fontFamily: Fonts.bold }}>
+                                <Text style={{ color: colors.textPrimary, fontSize: 16, fontFamily: Fonts.bold }}>
                                     {group.monthLabel}
                                 </Text>
-                                <View style={{ flex: 1, height: 1, backgroundColor: "#E4E6ED" }} />
+                                <View style={{ flex: 1, height: 1, backgroundColor: colors.border }} />
                             </View>
 
                             <View style={{ gap: 16 }}>
@@ -110,7 +109,7 @@ export default function HistoryScreen() {
                                             })
                                         }
                                         style={{
-                                            backgroundColor: "#ffffff",
+                                            backgroundColor: colors.surface,
                                             borderRadius: 20,
                                             padding: 16,
                                             gap: 12,
@@ -130,13 +129,13 @@ export default function HistoryScreen() {
                                         >
                                             <View
                                                 style={{
-                                                    backgroundColor: "#F0F0F3",
+                                                    backgroundColor: colors.surfaceMuted,
                                                     borderRadius: 12,
                                                     paddingHorizontal: 10,
                                                     paddingVertical: 4,
                                                 }}
                                             >
-                                                <Text style={{ color: "#4b4f58", fontSize: 11, fontFamily: Fonts.medium }}>
+                                                <Text style={{ color: colors.textSecondary, fontSize: 11, fontFamily: Fonts.medium }}>
                                                     Strength
                                                 </Text>
                                             </View>
@@ -145,13 +144,13 @@ export default function HistoryScreen() {
                                             </Pressable>
                                         </View>
 
-                                        <Text style={{ color: "#20242d", fontSize: 19, fontFamily: Fonts.bold }}>
+                                        <Text style={{ color: colors.textPrimary, fontSize: 19, fontFamily: Fonts.bold }}>
                                             {workout.title}
                                         </Text>
 
                                         <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                                            <Ionicons name="calendar-outline" size={14} color="#9599a5" />
-                                            <Text style={{ color: "#9599a5", fontSize: 12, fontFamily: Fonts.regular }}>
+                                            <Ionicons name="calendar-outline" size={14} color={colors.textSecondary} />
+                                            <Text style={{ color: colors.textSecondary, fontSize: 12, fontFamily: Fonts.regular }}>
                                                 {formatDate(workout.startedAt)}
                                             </Text>
                                             <View
@@ -159,11 +158,11 @@ export default function HistoryScreen() {
                                                     width: 4,
                                                     height: 4,
                                                     borderRadius: 2,
-                                                    backgroundColor: "#D8DBE3",
+                                                    backgroundColor: colors.border,
                                                 }}
                                             />
-                                            <Ionicons name="time-outline" size={14} color="#9599a5" />
-                                            <Text style={{ color: "#9599a5", fontSize: 12, fontFamily: Fonts.regular }}>
+                                            <Ionicons name="time-outline" size={14} color={colors.textSecondary} />
+                                            <Text style={{ color: colors.textSecondary, fontSize: 12, fontFamily: Fonts.regular }}>
                                                 {formatTime(workout.startedAt)}
                                             </Text>
                                         </View>
@@ -172,16 +171,16 @@ export default function HistoryScreen() {
                                             <View
                                                 style={{
                                                     flex: 1,
-                                                    backgroundColor: "#F7F8FB",
+                                                    backgroundColor: colors.surfaceMuted,
                                                     borderRadius: 14,
                                                     padding: 12,
                                                     gap: 4,
                                                 }}
                                             >
-                                                <Text style={{ color: "#9599a5", fontSize: 11, fontFamily: Fonts.regular }}>
+                                                <Text style={{ color: colors.textSecondary, fontSize: 11, fontFamily: Fonts.regular }}>
                                                     Total Calories
                                                 </Text>
-                                                <Text style={{ color: "#20242d", fontSize: 16, fontFamily: Fonts.bold }}>
+                                                <Text style={{ color: colors.textPrimary, fontSize: 16, fontFamily: Fonts.bold }}>
                                                     {profile
                                                         ? estimateWorkoutCalories({
                                                               durationMinutes: workout.durationMinutes,
@@ -190,22 +189,22 @@ export default function HistoryScreen() {
                                                               bodyWeightKg: profile.weight_kg,
                                                           })
                                                         : 0}{" "}
-                                                    kcal
+                                                    cal
                                                 </Text>
                                             </View>
                                             <View
                                                 style={{
                                                     flex: 1,
-                                                    backgroundColor: "#F7F8FB",
+                                                    backgroundColor: colors.surfaceMuted,
                                                     borderRadius: 14,
                                                     padding: 12,
                                                     gap: 4,
                                                 }}
                                             >
-                                                <Text style={{ color: "#9599a5", fontSize: 11, fontFamily: Fonts.regular }}>
+                                                <Text style={{ color: colors.textSecondary, fontSize: 11, fontFamily: Fonts.regular }}>
                                                     Total Time
                                                 </Text>
-                                                <Text style={{ color: "#20242d", fontSize: 16, fontFamily: Fonts.bold }}>
+                                                <Text style={{ color: colors.textPrimary, fontSize: 16, fontFamily: Fonts.bold }}>
                                                     {workout.durationMinutes} min
                                                 </Text>
                                             </View>

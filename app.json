@@ -29,14 +29,26 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 76
+          "backgroundColor": "#F5F6FA",
+          "image": "./assets/images/splash-light.png",
+          "imageWidth": 220,
+          "resizeMode": "contain",
+          "dark": {
+            "backgroundColor": "#000000",
+            "image": "./assets/images/splash-dark.png"
+          }
         }
       ],
       "expo-image",
       "expo-font",
-      "expo-sqlite"
+      "expo-sqlite",
+      "expo-sharing",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "FitBug uses your photo library so you can set a profile picture."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

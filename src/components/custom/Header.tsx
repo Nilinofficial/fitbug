@@ -1,9 +1,18 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Image } from "expo-image";
-import { Text, View } from "react-native";
-import avatar from "../../../assets/images/avatar.png";
+import { useState } from "react";
+import { Pressable, Text, View } from "react-native";
+
+import Avatar from "@/components/custom/Avatar";
+import { getProfile } from "@/db/profile";
+import { useFocusRefresh } from "@/hooks/use-focus-refresh";
+import { useAppTheme } from "@/theme/ThemeProvider";
 
 const Header = () => {
+    const { scheme, colors, setPreference } = useAppTheme();
+    const [profile, setProfile] = useState(() => getProfile());
+
+    useFocusRefresh(() => setProfile(getProfile()));
+
     return (
         <View
             style={{
@@ -14,11 +23,7 @@ const Header = () => {
 
             }}
         >
-            <Image
-                source={avatar}
-                contentFit="cover"
-                style={{ width: 36, height: 36, borderRadius: 20 }}
-            />
+            <Avatar uri={profile?.profile_picture} gender={profile?.gender} size={36} />
 
             <Text
                 selectable
@@ -31,10 +36,16 @@ const Header = () => {
                     letterSpacing: -0.8,
                 }}
             >
-                fitbug
+                FitBug
             </Text>
 
-            <Ionicons name="notifications" size={28} color="black" />
+            <Pressable onPress={() => setPreference(scheme === "dark" ? "light" : "dark")} hitSlop={8}>
+                <Ionicons
+                    name={scheme === "dark" ? "moon" : "sunny"}
+                    size={26}
+                    color={colors.textPrimary}
+                />
+            </Pressable>
         </View>
     );
 };

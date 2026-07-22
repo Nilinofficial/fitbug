@@ -1,53 +1,61 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useFocusEffect } from "expo-router";
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { Text, View } from "react-native";
 
+import CalorieBurnedCard from "@/components/custom/CalorieBurnedCard";
+import ExerciseIcon from "@/components/custom/ExerciseIcon";
 import SectionHeader from "@/components/custom/SectionHeader";
 import { EXERCISE_LIBRARY } from "@/constants/exercises";
 import { Fonts } from "@/constants/fonts";
 import { getTopPersonalRecords, PersonalRecordRow } from "@/db/workouts";
+import { useFocusRefresh } from "@/hooks/use-focus-refresh";
+import { resolveTintBg } from "@/theme/tokens";
+import { useAppTheme } from "@/theme/ThemeProvider";
 
-const FALLBACK_ICON = "barbell" as const;
+const FALLBACK_ICON_SET = "ionicons" as const;
+const FALLBACK_ICON = "barbell";
 const FALLBACK_ICON_BG = "#EAF1FE";
 const FALLBACK_ICON_COLOR = "#1263df";
 
 const isSameDay = (isoDate: string) => new Date(isoDate).toDateString() === new Date().toDateString();
 
 const PersonalRecords = () => {
-    const [records, setRecords] = useState<PersonalRecordRow[]>(() => getTopPersonalRecords(2));
+    const { colors } = useAppTheme();
+    const [records, setRecords] = useState<PersonalRecordRow[]>(() => getTopPersonalRecords(1));
 
-    useFocusEffect(
-        useCallback(() => {
-            setRecords(getTopPersonalRecords(2));
-        }, [])
-    );
+    useFocusRefresh(() => setRecords(getTopPersonalRecords(1)));
 
     return (
         <View>
             <SectionHeader title="Personal Records" rightLabel="" />
 
             {records.length === 0 ? (
-                <View
-                    style={{
-                        backgroundColor: "#ffffff",
-                        borderRadius: 16,
-                        padding: 16,
-                    }}
-                >
-                    <Text
-                        selectable
-                        style={{ color: "#9599a5", fontSize: 13, fontFamily: Fonts.regular }}
+                <View style={{ flexDirection: "row", gap: 12 }}>
+                    <View
+                        style={{
+                            flex: 1,
+                            backgroundColor: colors.surface,
+                            borderRadius: 16,
+                            padding: 16,
+                            justifyContent: "center",
+                        }}
                     >
-                        Complete a workout to see your personal records here.
-                    </Text>
+                        <Text
+                            selectable
+                            style={{ color: colors.textSecondary, fontSize: 13, fontFamily: Fonts.regular }}
+                        >
+                            Complete a workout to see your personal records here.
+                        </Text>
+                    </View>
+                    <CalorieBurnedCard period="today" />
                 </View>
             ) : (
                 <View style={{ flexDirection: "row", gap: 12 }}>
                     {records.map((record) => {
                         const template = EXERCISE_LIBRARY.find((item) => item.name === record.name);
+                        const iconSet = template?.iconSet ?? FALLBACK_ICON_SET;
                         const icon = template?.icon ?? FALLBACK_ICON;
-                        const iconBg = template?.iconBg ?? FALLBACK_ICON_BG;
+                        const iconBg = resolveTintBg(template?.iconBg ?? FALLBACK_ICON_BG, colors);
                         const iconColor = template?.iconColor ?? FALLBACK_ICON_COLOR;
                         const isNewToday = isSameDay(record.finished_at);
 
@@ -56,7 +64,7 @@ const PersonalRecords = () => {
                                 key={record.name}
                                 style={{
                                     flex: 1,
-                                    backgroundColor: "#ffffff",
+                                    backgroundColor: colors.surface,
                                     borderRadius: 16,
                                     padding: 14,
                                     gap: 8,
@@ -84,12 +92,12 @@ const PersonalRecords = () => {
                                             justifyContent: "center",
                                         }}
                                     >
-                                        <Ionicons name={icon} size={13} color={iconColor} />
+                                        <ExerciseIcon iconSet={iconSet} icon={icon} size={13} color={iconColor} />
                                     </View>
                                     <Text
                                         selectable
                                         style={{
-                                            color: "#9599a5",
+                                            color: colors.textSecondary,
                                             fontSize: 12,
                                             fontFamily: Fonts.medium,
                                         }}
@@ -102,7 +110,7 @@ const PersonalRecords = () => {
                                     <Text
                                         selectable
                                         style={{
-                                            color: "#20242d",
+                                            color: colors.textPrimary,
                                             fontSize: 26,
                                             fontFamily: Fonts.bold,
                                         }}
@@ -112,7 +120,7 @@ const PersonalRecords = () => {
                                     <Text
                                         selectable
                                         style={{
-                                            color: "#9599a5",
+                                            color: colors.textSecondary,
                                             fontSize: 13,
                                             fontFamily: Fonts.medium,
                                             marginBottom: 3,
@@ -161,6 +169,7 @@ const PersonalRecords = () => {
                             </View>
                         );
                     })}
+                    <CalorieBurnedCard period="today" />
                 </View>
             )}
         </View>

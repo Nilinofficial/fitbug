@@ -5,6 +5,7 @@ import { Pressable, Text, View } from "react-native";
 
 import { Fonts } from "@/constants/fonts";
 import { Spacing } from "@/constants/spacing";
+import { useAppTheme } from "@/theme/ThemeProvider";
 
 type IconName = ComponentProps<typeof Ionicons>["name"];
 
@@ -50,6 +51,7 @@ const TABS: Tab[] = [
 const BottomNav = () => {
     const router = useRouter();
     const pathname = usePathname();
+    const { colors } = useAppTheme();
 
     return (
         <View
@@ -60,7 +62,7 @@ const BottomNav = () => {
                 bottom: Spacing.lg,
                 minHeight: 64,
                 borderRadius: 32,
-                backgroundColor: "#ffffff",
+                backgroundColor: colors.surface,
                 flexDirection: "row",
                 alignItems: "flex-end",
                 justifyContent: "space-around",
@@ -103,12 +105,12 @@ const BottomNav = () => {
                                 <Ionicons name={tab.icon} size={20} color="#ffffff" />
                             </View>
                         ) : (
-                            <Ionicons name={tab.icon} size={22} color="#9599a5" />
+                            <Ionicons name={tab.icon} size={22} color={colors.textSecondary} />
                         )}
                         <Text
                             style={{
                                 fontSize: 10,
-                                color: active ? "#1263df" : "#9599a5",
+                                color: active ? "#1263df" : colors.textSecondary,
                                 fontFamily: active ? Fonts.bold : Fonts.medium,
                             }}
                         >

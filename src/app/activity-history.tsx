@@ -7,13 +7,15 @@ import MonthHeatmap from "@/components/custom/MonthHeatmap";
 import { Fonts } from "@/constants/fonts";
 import { Spacing } from "@/constants/spacing";
 import { getActivityMonthRange } from "@/db/activity";
+import { useAppTheme } from "@/theme/ThemeProvider";
 
 export default function ActivityHistoryScreen() {
     const router = useRouter();
+    const { colors } = useAppTheme();
     const months = getActivityMonthRange();
 
     return (
-        <SafeAreaView style={{ flex: 1, backgroundColor: "#F5F6FA" }}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
             <View
                 style={{
                     flexDirection: "row",
@@ -49,8 +51,8 @@ export default function ActivityHistoryScreen() {
                 showsVerticalScrollIndicator={false}
             >
                 {months.length === 0 ? (
-                    <View style={{ backgroundColor: "#ffffff", borderRadius: 16, padding: 16 }}>
-                        <Text style={{ color: "#9599a5", fontSize: 13, fontFamily: Fonts.regular }}>
+                    <View style={{ backgroundColor: colors.surface, borderRadius: 16, padding: 16 }}>
+                        <Text style={{ color: colors.textSecondary, fontSize: 13, fontFamily: Fonts.regular }}>
                             No workouts yet — start one from Home.
                         </Text>
                     </View>
@@ -58,9 +60,15 @@ export default function ActivityHistoryScreen() {
                     months.map(({ year, month }) => (
                         <View
                             key={`${year}-${month}`}
-                            style={{ backgroundColor: "#ffffff", borderRadius: 16, padding: 14 }}
+                            style={{ backgroundColor: colors.surface, borderRadius: 16, padding: 14 }}
                         >
-                            <MonthHeatmap year={year} month={month} />
+                            <MonthHeatmap
+                                year={year}
+                                month={month}
+                                onDayPress={(dateISO) =>
+                                    router.push({ pathname: "/workout", params: { date: dateISO } })
+                                }
+                            />
                         </View>
                     ))
                 )}

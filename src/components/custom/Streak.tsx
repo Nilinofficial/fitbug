@@ -1,11 +1,15 @@
 import { Fonts } from "@/constants/fonts";
+import { useAppTheme } from "@/theme/ThemeProvider";
 import { Text, View } from 'react-native';
 
 type StreakProps = {
     name: string;
+    daysThisMonth: number;
 };
 
-const Streak = ({ name }: StreakProps) => {
+const Streak = ({ name, daysThisMonth }: StreakProps) => {
+    const { colors } = useAppTheme();
+
     return (
         <View
             style={{
@@ -24,7 +28,7 @@ const Streak = ({ name }: StreakProps) => {
                     <Text
                         selectable
                         style={{
-                            color: "#20242d",
+                            color: colors.textPrimary,
                             fontSize: 20,
                             lineHeight: 28,
                             letterSpacing: -0.4,
@@ -34,7 +38,7 @@ const Streak = ({ name }: StreakProps) => {
                         Hi, {name}
                     </Text>
                     <Text selectable style={{
-                        color: "#9599a5", fontSize: 12, lineHeight: 14,
+                        color: colors.textSecondary, fontSize: 12, lineHeight: 14,
                         fontFamily: Fonts.regular,
                     }}>
                         Let&apos;s crush today&apos;s goals.
@@ -56,7 +60,7 @@ const Streak = ({ name }: StreakProps) => {
                         🔥
                     </Text>
                     <Text selectable style={{ color: "#a45337", fontSize: 10, fontWeight: "800" }}>
-                        12 Days
+                        {daysThisMonth} {daysThisMonth === 1 ? "Day" : "Days"}
                     </Text>
                 </View>
             </View>

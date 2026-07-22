@@ -139,6 +139,41 @@ export const getWorkoutDetail = (id: number): WorkoutDetail | null => {
     };
 };
 
+export type WorkoutCalorieInput = {
+    startedAt: string;
+    durationMinutes: number;
+    totalVolumeKg: number;
+    totalReps: number;
+};
+
+export const getWorkoutsSince = (sinceISO: string): WorkoutCalorieInput[] => {
+    const workouts = db.getAllSync<{
+        id: number;
+        started_at: string;
+        duration_seconds: number;
+    }>("SELECT id, started_at, duration_seconds FROM workouts WHERE started_at >= ?", [sinceISO]);
+
+    return workouts.map((workout) => {
+        const totals = db.getFirstSync<{
+            totalReps: number | null;
+            totalVolumeKg: number | null;
+        }>(
+            `SELECT SUM(ws.reps) AS totalReps, SUM(ws.weight_kg * ws.reps) AS totalVolumeKg
+             FROM workout_sets ws
+             JOIN workout_exercises we ON we.id = ws.workout_exercise_id
+             WHERE we.workout_id = ?`,
+            [workout.id]
+        );
+
+        return {
+            startedAt: workout.started_at,
+            durationMinutes: Math.round(workout.duration_seconds / 60),
+            totalVolumeKg: totals?.totalVolumeKg ?? 0,
+            totalReps: totals?.totalReps ?? 0,
+        };
+    });
+};
+
 export type PersonalRecordRow = {
     name: string;
     equipment: string;

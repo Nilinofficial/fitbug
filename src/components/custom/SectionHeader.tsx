@@ -1,6 +1,7 @@
 import { Pressable, Text, View } from "react-native";
 
 import { Fonts } from "@/constants/fonts";
+import { useAppTheme } from "@/theme/ThemeProvider";
 
 type SectionHeaderProps = {
     title: string;
@@ -9,6 +10,8 @@ type SectionHeaderProps = {
 };
 
 const SectionHeader = ({ title, rightLabel = "See all", onRightPress }: SectionHeaderProps) => {
+    const { colors } = useAppTheme();
+
     return (
         <View
             style={{
@@ -21,7 +24,7 @@ const SectionHeader = ({ title, rightLabel = "See all", onRightPress }: SectionH
             <Text
                 selectable
                 style={{
-                    color: "#20242d",
+                    color: colors.textPrimary,
                     fontSize: 16,
                     fontFamily: Fonts.bold,
                 }}

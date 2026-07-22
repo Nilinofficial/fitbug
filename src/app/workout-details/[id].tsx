@@ -5,14 +5,18 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { estimateWorkoutCalories } from "@/algorithms/calorieAlgorithm";
 import BottomNav from "@/components/custom/BottomNav";
+import ExerciseIcon from "@/components/custom/ExerciseIcon";
 import { EXERCISE_LIBRARY } from "@/constants/exercises";
 import { Fonts } from "@/constants/fonts";
 import { Spacing } from "@/constants/spacing";
 import { getProfile } from "@/db/profile";
 import { getWorkoutDetail } from "@/db/workouts";
 import { formatDate } from "@/lib/format";
+import { useAppTheme } from "@/theme/ThemeProvider";
+import { resolveTintBg } from "@/theme/tokens";
 
-const FALLBACK_ICON = "barbell" as const;
+const FALLBACK_ICON_SET = "ionicons" as const;
+const FALLBACK_ICON = "barbell";
 const FALLBACK_ICON_BG = "#EAF1FE";
 const FALLBACK_ICON_COLOR = "#1263df";
 
@@ -23,14 +27,15 @@ const formatVolume = (kg: number): string => {
 
 export default function WorkoutDetailsScreen() {
     const router = useRouter();
+    const { colors } = useAppTheme();
     const { id } = useLocalSearchParams<{ id: string }>();
     const workout = getWorkoutDetail(Number(id));
     const profile = getProfile();
 
     if (!workout) {
         return (
-            <SafeAreaView style={{ flex: 1, backgroundColor: "#F5F6FA", alignItems: "center", justifyContent: "center" }}>
-                <Text style={{ color: "#9599a5", fontSize: 14, fontFamily: Fonts.regular }}>
+            <SafeAreaView style={{ flex: 1, backgroundColor: colors.background, alignItems: "center", justifyContent: "center" }}>
+                <Text style={{ color: colors.textSecondary, fontSize: 14, fontFamily: Fonts.regular }}>
                     Workout not found.
                 </Text>
             </SafeAreaView>
@@ -38,7 +43,7 @@ export default function WorkoutDetailsScreen() {
     }
 
     return (
-        <SafeAreaView style={{ flex: 1, backgroundColor: "#F5F6FA" }}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
             <View
                 style={{
                     flexDirection: "row",
@@ -54,7 +59,7 @@ export default function WorkoutDetailsScreen() {
                     <Text style={{ color: "#1263df", fontSize: 17, fontFamily: Fonts.bold }}>
                         Workout Details
                     </Text>
-                    <Text style={{ color: "#20242d", fontSize: 12, fontFamily: Fonts.medium }}>
+                    <Text style={{ color: colors.textPrimary, fontSize: 12, fontFamily: Fonts.medium }}>
                         {formatDate(workout.startedAt)}
                     </Text>
                 </View>
@@ -70,10 +75,10 @@ export default function WorkoutDetailsScreen() {
                 showsVerticalScrollIndicator={false}
             >
                 <View style={{ gap: 4 }}>
-                    <Text style={{ color: "#20242d", fontSize: 24, fontFamily: Fonts.bold }}>
+                    <Text style={{ color: colors.textPrimary, fontSize: 24, fontFamily: Fonts.bold }}>
                         {workout.title}
                     </Text>
-                    <Text style={{ color: "#9599a5", fontSize: 13, fontFamily: Fonts.regular }}>
+                    <Text style={{ color: colors.textSecondary, fontSize: 13, fontFamily: Fonts.regular }}>
                         Strength Training
                     </Text>
                 </View>
@@ -82,7 +87,7 @@ export default function WorkoutDetailsScreen() {
                     <View
                         style={{
                             flex: 1,
-                            backgroundColor: "#ffffff",
+                            backgroundColor: colors.surface,
                             borderRadius: 16,
                             paddingVertical: 16,
                             alignItems: "center",
@@ -94,17 +99,17 @@ export default function WorkoutDetailsScreen() {
                                 width: 36,
                                 height: 36,
                                 borderRadius: 18,
-                                backgroundColor: "#EAF1FE",
+                                backgroundColor: colors.tintBlueBg,
                                 alignItems: "center",
                                 justifyContent: "center",
                             }}
                         >
                             <Ionicons name="stopwatch-outline" size={18} color="#1263df" />
                         </View>
-                        <Text style={{ color: "#20242d", fontSize: 22, fontFamily: Fonts.bold }}>
+                        <Text style={{ color: colors.textPrimary, fontSize: 22, fontFamily: Fonts.bold }}>
                             {workout.durationMinutes}
                         </Text>
-                        <Text style={{ color: "#9599a5", fontSize: 10, fontFamily: Fonts.medium }}>
+                        <Text style={{ color: colors.textSecondary, fontSize: 10, fontFamily: Fonts.medium }}>
                             MIN
                         </Text>
                     </View>
@@ -112,7 +117,7 @@ export default function WorkoutDetailsScreen() {
                     <View
                         style={{
                             flex: 1,
-                            backgroundColor: "#ffffff",
+                            backgroundColor: colors.surface,
                             borderRadius: 16,
                             paddingVertical: 16,
                             alignItems: "center",
@@ -124,14 +129,14 @@ export default function WorkoutDetailsScreen() {
                                 width: 36,
                                 height: 36,
                                 borderRadius: 18,
-                                backgroundColor: "#FFF1E6",
+                                backgroundColor: colors.tintOrangeBg,
                                 alignItems: "center",
                                 justifyContent: "center",
                             }}
                         >
                             <Ionicons name="flame" size={18} color="#e2703a" />
                         </View>
-                        <Text style={{ color: "#20242d", fontSize: 22, fontFamily: Fonts.bold }}>
+                        <Text style={{ color: colors.textPrimary, fontSize: 22, fontFamily: Fonts.bold }}>
                             {profile
                                 ? estimateWorkoutCalories({
                                       durationMinutes: workout.durationMinutes,
@@ -141,15 +146,15 @@ export default function WorkoutDetailsScreen() {
                                   })
                                 : 0}
                         </Text>
-                        <Text style={{ color: "#9599a5", fontSize: 10, fontFamily: Fonts.medium }}>
-                            KCAL
+                        <Text style={{ color: colors.textSecondary, fontSize: 10, fontFamily: Fonts.medium }}>
+                            CAL
                         </Text>
                     </View>
 
                     <View
                         style={{
                             flex: 1,
-                            backgroundColor: "#ffffff",
+                            backgroundColor: colors.surface,
                             borderRadius: 16,
                             paddingVertical: 16,
                             alignItems: "center",
@@ -161,17 +166,17 @@ export default function WorkoutDetailsScreen() {
                                 width: 36,
                                 height: 36,
                                 borderRadius: 18,
-                                backgroundColor: "#F0F0F3",
+                                backgroundColor: colors.surfaceMuted,
                                 alignItems: "center",
                                 justifyContent: "center",
                             }}
                         >
-                            <Ionicons name="barbell" size={18} color="#4b4f58" />
+                            <Ionicons name="barbell" size={18} color={colors.textSecondary} />
                         </View>
-                        <Text style={{ color: "#20242d", fontSize: 22, fontFamily: Fonts.bold }}>
+                        <Text style={{ color: colors.textPrimary, fontSize: 22, fontFamily: Fonts.bold }}>
                             {formatVolume(workout.totalVolumeKg)}
                         </Text>
-                        <Text style={{ color: "#9599a5", fontSize: 10, fontFamily: Fonts.medium }}>
+                        <Text style={{ color: colors.textSecondary, fontSize: 10, fontFamily: Fonts.medium }}>
                             KG
                         </Text>
                     </View>
@@ -179,8 +184,9 @@ export default function WorkoutDetailsScreen() {
 
                 {workout.exercises.map((exercise) => {
                     const template = EXERCISE_LIBRARY.find((item) => item.name === exercise.name);
+                    const iconSet = template?.iconSet ?? FALLBACK_ICON_SET;
                     const icon = template?.icon ?? FALLBACK_ICON;
-                    const iconBg = template?.iconBg ?? FALLBACK_ICON_BG;
+                    const iconBg = resolveTintBg(template?.iconBg ?? FALLBACK_ICON_BG, colors);
                     const iconColor = template?.iconColor ?? FALLBACK_ICON_COLOR;
                     const kgLabel = exercise.equipment === "Dumbbell" ? "KG (EA)" : "KG";
 
@@ -188,7 +194,7 @@ export default function WorkoutDetailsScreen() {
                         <View
                             key={exercise.id}
                             style={{
-                                backgroundColor: "#ffffff",
+                                backgroundColor: colors.surface,
                                 borderRadius: 20,
                                 padding: 16,
                                 gap: 14,
@@ -205,26 +211,26 @@ export default function WorkoutDetailsScreen() {
                                         justifyContent: "center",
                                     }}
                                 >
-                                    <Ionicons name={icon} size={20} color={iconColor} />
+                                    <ExerciseIcon iconSet={iconSet} icon={icon} size={20} color={iconColor} />
                                 </View>
                                 <View style={{ gap: 2 }}>
-                                    <Text style={{ color: "#20242d", fontSize: 16, fontFamily: Fonts.bold }}>
+                                    <Text style={{ color: colors.textPrimary, fontSize: 16, fontFamily: Fonts.bold }}>
                                         {exercise.name}
                                     </Text>
-                                    <Text style={{ color: "#9599a5", fontSize: 12, fontFamily: Fonts.regular }}>
+                                    <Text style={{ color: colors.textSecondary, fontSize: 12, fontFamily: Fonts.regular }}>
                                         {exercise.sets.length} sets · {Math.round(exercise.totalVolumeKg)} kg
                                     </Text>
                                 </View>
                             </View>
 
                             <View style={{ flexDirection: "row", paddingHorizontal: 4 }}>
-                                <Text style={{ width: 44, color: "#9599a5", fontSize: 11, fontFamily: Fonts.medium }}>
+                                <Text style={{ width: 44, color: colors.textSecondary, fontSize: 11, fontFamily: Fonts.medium }}>
                                     SET
                                 </Text>
-                                <Text style={{ flex: 1, color: "#9599a5", fontSize: 11, fontFamily: Fonts.medium }}>
+                                <Text style={{ flex: 1, color: colors.textSecondary, fontSize: 11, fontFamily: Fonts.medium }}>
                                     {kgLabel}
                                 </Text>
-                                <Text style={{ flex: 1, color: "#9599a5", fontSize: 11, fontFamily: Fonts.medium }}>
+                                <Text style={{ flex: 1, color: colors.textSecondary, fontSize: 11, fontFamily: Fonts.medium }}>
                                     REPS
                                 </Text>
                                 <View style={{ width: 28 }} />
@@ -236,19 +242,19 @@ export default function WorkoutDetailsScreen() {
                                     style={{
                                         flexDirection: "row",
                                         alignItems: "center",
-                                        backgroundColor: "#F7F8FB",
+                                        backgroundColor: colors.surfaceMuted,
                                         borderRadius: 14,
                                         paddingVertical: 8,
                                         paddingHorizontal: 4,
                                     }}
                                 >
-                                    <Text style={{ width: 44, color: "#20242d", fontSize: 14, fontFamily: Fonts.semiBold }}>
+                                    <Text style={{ width: 44, color: colors.textPrimary, fontSize: 14, fontFamily: Fonts.semiBold }}>
                                         {index + 1}
                                     </Text>
-                                    <Text style={{ flex: 1, color: "#20242d", fontSize: 14, fontFamily: Fonts.semiBold }}>
+                                    <Text style={{ flex: 1, color: colors.textPrimary, fontSize: 14, fontFamily: Fonts.semiBold }}>
                                         {set.weightKg}
                                     </Text>
-                                    <Text style={{ flex: 1, color: "#20242d", fontSize: 14, fontFamily: Fonts.semiBold }}>
+                                    <Text style={{ flex: 1, color: colors.textPrimary, fontSize: 14, fontFamily: Fonts.semiBold }}>
                                         {set.reps}
                                     </Text>
                                     <View style={{ width: 28, alignItems: "center" }}>

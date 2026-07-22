@@ -10,7 +10,7 @@ export const getDailyActivityForMonth = (year: number, month: number): DayActivi
     const end = new Date(year, month + 1, 1).toISOString();
 
     const rows = db.getAllSync<{ day: string; count: number }>(
-        `SELECT date(started_at) AS day, COUNT(*) AS count
+        `SELECT date(started_at, 'localtime') AS day, COUNT(*) AS count
          FROM workouts
          WHERE started_at >= ? AND started_at < ?
          GROUP BY day`,
@@ -18,6 +18,11 @@ export const getDailyActivityForMonth = (year: number, month: number): DayActivi
     );
 
     return rows.map((row) => ({ date: row.day, count: row.count }));
+};
+
+export const getWorkoutDaysThisMonth = (): number => {
+    const now = new Date();
+    return getDailyActivityForMonth(now.getFullYear(), now.getMonth()).length;
 };
 
 export type MonthRef = { year: number; month: number };

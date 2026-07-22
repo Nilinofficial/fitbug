@@ -1,33 +1,72 @@
-import { Ionicons } from "@expo/vector-icons";
-import { useFocusEffect, useRouter } from "expo-router";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import type { ComponentProps } from "react";
-import { useCallback, useMemo, useState } from "react";
-import { Pressable, Text, TextInput, View } from "react-native";
+import { useMemo, useState } from "react";
+import { Alert, Pressable, Text, TextInput, View } from "react-native";
 
+import ExerciseIcon from "@/components/custom/ExerciseIcon";
 import SectionHeader from "@/components/custom/SectionHeader";
 import { EXERCISE_LIBRARY } from "@/constants/exercises";
 import { Fonts } from "@/constants/fonts";
-import { CustomWorkoutSummary, getCustomWorkouts } from "@/db/customWorkouts";
+import { CustomWorkoutSummary, deleteCustomWorkout, getCustomWorkouts } from "@/db/customWorkouts";
+import { useFocusRefresh } from "@/hooks/use-focus-refresh";
+import { useAppTheme } from "@/theme/ThemeProvider";
+import { resolveTintBg } from "@/theme/tokens";
+
+const CUSTOM_WORKOUT_PREFIX = "custom-";
+
+export const customWorkoutTemplateId = (id: number) => `${CUSTOM_WORKOUT_PREFIX}${id}`;
+
+export const parseCustomWorkoutTemplateId = (templateId: string): number | null => {
+    if (!templateId.startsWith(CUSTOM_WORKOUT_PREFIX)) return null;
+    const id = Number(templateId.slice(CUSTOM_WORKOUT_PREFIX.length));
+    return Number.isNaN(id) ? null : id;
+};
 
 type ExercisePickerProps = {
     selectedIds: string[];
     onToggle: (id: string) => void;
     excludeIds?: string[];
-    onSelectRoutine?: (customWorkoutId: number) => void;
+    showCustomWorkouts?: boolean;
 };
 
-const ExercisePicker = ({ selectedIds, onToggle, excludeIds = [], onSelectRoutine }: ExercisePickerProps) => {
+const ExercisePicker = ({
+    selectedIds,
+    onToggle,
+    excludeIds = [],
+    showCustomWorkouts = false,
+}: ExercisePickerProps) => {
     const router = useRouter();
+    const { colors } = useAppTheme();
     const [query, setQuery] = useState("");
     const [customWorkouts, setCustomWorkouts] = useState<CustomWorkoutSummary[]>(() =>
-        onSelectRoutine ? getCustomWorkouts() : []
+        showCustomWorkouts ? getCustomWorkouts() : []
     );
 
-    useFocusEffect(
-        useCallback(() => {
-            if (onSelectRoutine) setCustomWorkouts(getCustomWorkouts());
-        }, [onSelectRoutine])
+    useFocusRefresh(() => {
+        if (showCustomWorkouts) setCustomWorkouts(getCustomWorkouts());
+    });
+
+    const visibleCustomWorkouts = useMemo(
+        () => customWorkouts.filter((routine) => !excludeIds.includes(customWorkoutTemplateId(routine.id))),
+        [customWorkouts, excludeIds]
     );
+
+    const handleDeleteRoutine = (routine: CustomWorkoutSummary) => {
+        Alert.alert("Delete workout", `Delete "${routine.name}"? This can't be undone.`, [
+            { text: "Cancel", style: "cancel" },
+            {
+                text: "Delete",
+                style: "destructive",
+                onPress: () => {
+                    const templateId = customWorkoutTemplateId(routine.id);
+                    if (selectedIds.includes(templateId)) onToggle(templateId);
+                    deleteCustomWorkout(routine.id);
+                    setCustomWorkouts(getCustomWorkouts());
+                },
+            },
+        ]);
+    };
 
     const exercises = useMemo(() => {
         const q = query.trim().toLowerCase();
@@ -45,21 +84,21 @@ const ExercisePicker = ({ selectedIds, onToggle, excludeIds = [], onSelectRoutin
                     flexDirection: "row",
                     alignItems: "center",
                     gap: 8,
-                    backgroundColor: "#EDEEF2",
+                    backgroundColor: colors.surfaceMuted,
                     borderRadius: 14,
                     paddingHorizontal: 14,
                     paddingVertical: 12,
                 }}
             >
-                <Ionicons name="search" size={18} color="#9599a5" />
+                <Ionicons name="search" size={18} color={colors.textSecondary} />
                 <TextInput
                     value={query}
                     onChangeText={setQuery}
                     placeholder="Search exercises..."
-                    placeholderTextColor="#9599a5"
+                    placeholderTextColor={colors.textSecondary}
                     style={{
                         flex: 1,
-                        color: "#20242d",
+                        color: colors.textPrimary,
                         fontSize: 14,
                         fontFamily: Fonts.regular,
                         padding: 0,
@@ -70,7 +109,7 @@ const ExercisePicker = ({ selectedIds, onToggle, excludeIds = [], onSelectRoutin
             <View
                 style={{
                     flexDirection: "row",
-                    backgroundColor: "#E3EBFD",
+                    backgroundColor: colors.tintBlueBg,
                     borderRadius: 20,
                     padding: 18,
                     overflow: "hidden",
@@ -78,10 +117,10 @@ const ExercisePicker = ({ selectedIds, onToggle, excludeIds = [], onSelectRoutin
             >
                 <View style={{ flex: 1, gap: 8 }}>
                     <Text style={{ color: "#1263df", fontSize: 18, fontFamily: Fonts.bold }}>
-                        New Routine?
+                        New Workout?
                     </Text>
-                    <Text style={{ color: "#4b4f58", fontSize: 13, fontFamily: Fonts.regular, lineHeight: 18 }}>
-                        Mix and match exercises to build your perfect session.
+                    <Text style={{ color: colors.textSecondary, fontSize: 13, fontFamily: Fonts.regular, lineHeight: 18 }}>
+                        Save your favorite muscle-group combos for quick access.
                     </Text>
                     <Pressable
                         onPress={() => router.push("/create-workout")}
@@ -112,52 +151,78 @@ const ExercisePicker = ({ selectedIds, onToggle, excludeIds = [], onSelectRoutin
                 />
             </View>
 
-            {onSelectRoutine && customWorkouts.length > 0 ? (
+            {showCustomWorkouts && visibleCustomWorkouts.length > 0 ? (
                 <View>
-                    <SectionHeader title="My Routines" rightLabel="" />
+                    <SectionHeader title="My Workouts" rightLabel="" />
                     <View style={{ gap: 10 }}>
-                        {customWorkouts.map((routine) => (
-                            <Pressable
-                                key={routine.id}
-                                onPress={() => onSelectRoutine(routine.id)}
-                                style={{
-                                    flexDirection: "row",
-                                    alignItems: "center",
-                                    gap: 12,
-                                    backgroundColor: "#ffffff",
-                                    borderRadius: 16,
-                                    padding: 12,
-                                    shadowColor: "#000000",
-                                    shadowOffset: { width: 0, height: 2 },
-                                    shadowOpacity: 0.04,
-                                    shadowRadius: 8,
-                                    elevation: 1,
-                                }}
-                            >
-                                <View
+                        {visibleCustomWorkouts.map((routine) => {
+                            const templateId = customWorkoutTemplateId(routine.id);
+                            const isSelected = selectedIds.includes(templateId);
+
+                            return (
+                                <Pressable
+                                    key={routine.id}
+                                    onPress={() => onToggle(templateId)}
                                     style={{
-                                        width: 44,
-                                        height: 44,
-                                        borderRadius: 14,
-                                        backgroundColor: "#EAF1FE",
+                                        flexDirection: "row",
                                         alignItems: "center",
-                                        justifyContent: "center",
+                                        gap: 12,
+                                        backgroundColor: isSelected ? colors.tintBlueBg : colors.surface,
+                                        borderRadius: 16,
+                                        padding: 12,
+                                        shadowColor: "#000000",
+                                        shadowOffset: { width: 0, height: 2 },
+                                        shadowOpacity: 0.04,
+                                        shadowRadius: 8,
+                                        elevation: 1,
                                     }}
                                 >
-                                    <Ionicons name={routine.icon as ComponentProps<typeof Ionicons>["name"]} size={20} color="#1263df" />
-                                </View>
-                                <View style={{ gap: 2, flex: 1 }}>
-                                    <Text style={{ color: "#20242d", fontSize: 15, fontFamily: Fonts.bold }}>
-                                        {routine.name}
-                                    </Text>
-                                    <Text style={{ color: "#9599a5", fontSize: 12, fontFamily: Fonts.regular }}>
-                                        {routine.exerciseCount} exercises
-                                        {routine.muscleGroups.length > 0 ? ` · ${routine.muscleGroups.join(", ")}` : ""}
-                                    </Text>
-                                </View>
-                                <Ionicons name="chevron-forward" size={16} color="#D8DBE3" />
-                            </Pressable>
-                        ))}
+                                    <View
+                                        style={{
+                                            width: 44,
+                                            height: 44,
+                                            borderRadius: 14,
+                                            backgroundColor: colors.tintBlueBg,
+                                            alignItems: "center",
+                                            justifyContent: "center",
+                                        }}
+                                    >
+                                        <MaterialCommunityIcons
+                                            name={routine.icon as ComponentProps<typeof MaterialCommunityIcons>["name"]}
+                                            size={20}
+                                            color="#1263df"
+                                        />
+                                    </View>
+                                    <View style={{ gap: 2, flex: 1 }}>
+                                        <Text style={{ color: colors.textPrimary, fontSize: 15, fontFamily: Fonts.bold }}>
+                                            {routine.name}
+                                        </Text>
+                                        <Text style={{ color: colors.textSecondary, fontSize: 12, fontFamily: Fonts.regular }}>
+                                            {routine.muscleGroups.length > 0
+                                                ? routine.muscleGroups.join(", ")
+                                                : "No muscle groups tagged"}
+                                        </Text>
+                                    </View>
+                                    <Pressable onPress={() => handleDeleteRoutine(routine)} hitSlop={8}>
+                                        <Ionicons name="trash-outline" size={16} color="#e2703a" />
+                                    </Pressable>
+                                    <View
+                                        style={{
+                                            width: 24,
+                                            height: 24,
+                                            borderRadius: 12,
+                                            borderWidth: isSelected ? 0 : 1.5,
+                                            borderColor: colors.border,
+                                            backgroundColor: isSelected ? "#1263df" : "transparent",
+                                            alignItems: "center",
+                                            justifyContent: "center",
+                                        }}
+                                    >
+                                        {isSelected ? <Ionicons name="checkmark" size={15} color="#ffffff" /> : null}
+                                    </View>
+                                </Pressable>
+                            );
+                        })}
                     </View>
                 </View>
             ) : null}
@@ -176,7 +241,7 @@ const ExercisePicker = ({ selectedIds, onToggle, excludeIds = [], onSelectRoutin
                                     flexDirection: "row",
                                     alignItems: "center",
                                     justifyContent: "space-between",
-                                    backgroundColor: "#ffffff",
+                                    backgroundColor: colors.surface,
                                     borderRadius: 16,
                                     padding: 12,
                                     shadowColor: "#000000",
@@ -192,19 +257,24 @@ const ExercisePicker = ({ selectedIds, onToggle, excludeIds = [], onSelectRoutin
                                             width: 44,
                                             height: 44,
                                             borderRadius: 14,
-                                            backgroundColor: exercise.iconBg,
+                                            backgroundColor: resolveTintBg(exercise.iconBg, colors),
                                             alignItems: "center",
                                             justifyContent: "center",
                                         }}
                                     >
-                                        <Ionicons name={exercise.icon} size={20} color={exercise.iconColor} />
+                                        <ExerciseIcon
+                                        iconSet={exercise.iconSet}
+                                        icon={exercise.icon}
+                                        size={20}
+                                        color={exercise.iconColor}
+                                    />
                                     </View>
 
                                     <View style={{ gap: 2 }}>
-                                        <Text style={{ color: "#20242d", fontSize: 15, fontFamily: Fonts.bold }}>
+                                        <Text style={{ color: colors.textPrimary, fontSize: 15, fontFamily: Fonts.bold }}>
                                             {exercise.name}
                                         </Text>
-                                        <Text style={{ color: "#9599a5", fontSize: 12, fontFamily: Fonts.regular }}>
+                                        <Text style={{ color: colors.textSecondary, fontSize: 12, fontFamily: Fonts.regular }}>
                                             {exercise.muscle}
                                         </Text>
                                     </View>
@@ -216,7 +286,7 @@ const ExercisePicker = ({ selectedIds, onToggle, excludeIds = [], onSelectRoutin
                                         height: 24,
                                         borderRadius: 12,
                                         borderWidth: selected ? 0 : 1.5,
-                                        borderColor: "#D8DBE3",
+                                        borderColor: colors.border,
                                         backgroundColor: selected ? "#1263df" : "transparent",
                                         alignItems: "center",
                                         justifyContent: "center",
@@ -234,17 +304,17 @@ const ExercisePicker = ({ selectedIds, onToggle, excludeIds = [], onSelectRoutin
                 style={{
                     flexDirection: "row",
                     gap: 10,
-                    backgroundColor: "#F0F0F3",
+                    backgroundColor: colors.surfaceMuted,
                     borderRadius: 16,
                     padding: 14,
                 }}
             >
                 <Ionicons name="information-circle" size={20} color="#1263df" />
                 <View style={{ flex: 1, gap: 2 }}>
-                    <Text style={{ color: "#20242d", fontSize: 13, fontFamily: Fonts.bold }}>
+                    <Text style={{ color: colors.textPrimary, fontSize: 13, fontFamily: Fonts.bold }}>
                         Pro Tip
                     </Text>
-                    <Text style={{ color: "#60646C", fontSize: 12, fontFamily: Fonts.regular, lineHeight: 17 }}>
+                    <Text style={{ color: colors.textSecondary, fontSize: 12, fontFamily: Fonts.regular, lineHeight: 17 }}>
                         You can adjust reps and weight for each set once you start tracking.
                     </Text>
                 </View>

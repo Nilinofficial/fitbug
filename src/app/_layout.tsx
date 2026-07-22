@@ -8,16 +8,25 @@ import {
 import { useFonts } from 'expo-font';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import { useColorScheme } from "react-native";
-
 
 import { AnimatedSplashOverlay } from "@/components/animated-icon";
 import { useEffect } from 'react';
+import { AppThemeProvider, useAppTheme } from "@/theme/ThemeProvider";
 
 SplashScreen.preventAutoHideAsync();
 
+function ThemedApp() {
+  const { scheme } = useAppTheme();
+
+  return (
+    <ThemeProvider value={scheme === "dark" ? DarkTheme : DefaultTheme}>
+      <AnimatedSplashOverlay />
+      <Stack screenOptions={{ headerShown: false }} />
+    </ThemeProvider>
+  );
+}
+
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
 const [loaded] = useFonts({
   Inter_400Regular,
   Inter_500Medium,
@@ -37,9 +46,8 @@ const [loaded] = useFonts({
   }
 
   return (
-    <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-      <AnimatedSplashOverlay />
-      <Stack screenOptions={{ headerShown: false }} />
-    </ThemeProvider>
+    <AppThemeProvider>
+      <ThemedApp />
+    </AppThemeProvider>
   );
 }

@@ -1,12 +1,12 @@
-import { Ionicons } from "@expo/vector-icons";
-import type { ComponentProps } from "react";
+export type IconSet = "ionicons" | "material";
 
 export type ExerciseTemplate = {
     id: string;
     name: string;
     equipment: string;
     muscle: string;
-    icon: ComponentProps<typeof Ionicons>["name"];
+    iconSet: IconSet;
+    icon: string;
     iconBg: string;
     iconColor: string;
 };
@@ -17,61 +17,28 @@ export const EXERCISE_LIBRARY: ExerciseTemplate[] = [
         name: "Bench Press",
         equipment: "Barbell",
         muscle: "Chest, Triceps",
+        iconSet: "ionicons",
         icon: "barbell",
         iconBg: "#FFF1E6",
         iconColor: "#e2703a",
-    },
-    {
-        id: "back-squat",
-        name: "Back Squat",
-        equipment: "Barbell",
-        muscle: "Quads, Glutes",
-        icon: "ellipse-outline",
-        iconBg: "#EAF1FE",
-        iconColor: "#1263df",
     },
     {
         id: "deadlift",
         name: "Deadlift",
         equipment: "Barbell",
         muscle: "Hamstrings, Lower Back",
-        icon: "hand-left-outline",
-        iconBg: "#FFF1E6",
-        iconColor: "#e2703a",
-    },
-    {
-        id: "overhead-press",
-        name: "Overhead Press",
-        equipment: "Dumbbell",
-        muscle: "Shoulders, Triceps",
-        icon: "walk-outline",
+        iconSet: "material",
+        icon: "weight-lifter",
         iconBg: "#EAF1FE",
         iconColor: "#1263df",
     },
     {
-        id: "pull-up",
-        name: "Pull Up",
-        equipment: "Bodyweight",
-        muscle: "Back, Biceps",
-        icon: "arrow-up-outline",
-        iconBg: "#FFF1E6",
-        iconColor: "#e2703a",
-    },
-    {
-        id: "bicep-curl",
-        name: "Bicep Curl",
-        equipment: "Dumbbell",
-        muscle: "Biceps",
-        icon: "fitness-outline",
-        iconBg: "#EAF1FE",
-        iconColor: "#1263df",
-    },
-    {
-        id: "plank",
-        name: "Plank",
-        equipment: "Bodyweight",
-        muscle: "Core",
-        icon: "remove-outline",
+        id: "pec-deck-fly",
+        name: "Pec Deck Fly",
+        equipment: "Machine",
+        muscle: "Chest",
+        iconSet: "material",
+        icon: "arm-flex-outline",
         iconBg: "#FFF1E6",
         iconColor: "#e2703a",
     },
@@ -80,8 +47,69 @@ export const EXERCISE_LIBRARY: ExerciseTemplate[] = [
         name: "Lat Pulldown",
         equipment: "Cable",
         muscle: "Back",
-        icon: "arrow-down-outline",
+        iconSet: "material",
+        icon: "arm-flex",
         iconBg: "#EAF1FE",
         iconColor: "#1263df",
+    },
+    {
+        id: "leg-press",
+        name: "Leg Press",
+        equipment: "Machine",
+        muscle: "Quadriceps, Glutes",
+        iconSet: "material",
+        icon: "weight-lifter",
+        iconBg: "#EAF1FE",
+        iconColor: "#1263df",
+    },
+    {
+        id: "leg-extension",
+        name: "Leg Extension",
+        equipment: "Machine",
+        muscle: "Quadriceps",
+        iconSet: "material",
+        icon: "run",
+        iconBg: "#EAF1FE",
+        iconColor: "#1263df",
+    },
+    {
+        id: "leg-curl",
+        name: "Leg Curl",
+        equipment: "Machine",
+        muscle: "Hamstrings",
+        iconSet: "material",
+        icon: "walk",
+        iconBg: "#EAF1FE",
+        iconColor: "#1263df",
+    },
+    {
+        id: "calf-raises",
+        name: "Calf Raises",
+        equipment: "Machine",
+        muscle: "Calves",
+        iconSet: "material",
+        icon: "shoe-print",
+        iconBg: "#EAF1FE",
+        iconColor: "#1263df",
+    },
+    {
+        id: "incline-chest-press",
+        name: "Incline Chest Press",
+        equipment: "Barbell",
+        muscle: "Upper Chest, Triceps",
+        iconSet: "material",
+        icon: "trending-up",
+        iconBg: "#FFF1E6",
+        iconColor: "#e2703a",
+    },
+    {
+        id: "decline-chest-press",
+        name: "Decline Chest Press",
+        equipment: "Barbell",
+        muscle: "Lower Chest, Triceps",
+        iconSet: "material",
+        icon: "trending-down",
+        iconBg: "#FFF1E6",
+        iconColor: "#e2703a",
     },
 ];
