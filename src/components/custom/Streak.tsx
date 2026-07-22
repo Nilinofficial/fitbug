@@ -1,6 +1,11 @@
 import { Fonts } from "@/constants/fonts";
 import { Text, View } from 'react-native';
-const Streak = () => {
+
+type StreakProps = {
+    name: string;
+};
+
+const Streak = ({ name }: StreakProps) => {
     return (
         <View
             style={{
@@ -26,7 +31,7 @@ const Streak = () => {
                             fontFamily: Fonts.bold,
                         }}
                     >
-                        Hi, Alex
+                        Hi, {name}
                     </Text>
                     <Text selectable style={{
                         color: "#9599a5", fontSize: 12, lineHeight: 14,

@@ -1,7 +1,8 @@
 import { ReactNode } from "react";
-import { View } from "react-native";
+import { ScrollView } from "react-native";
 
 import { Spacing } from "@/constants/spacing";
+import { BottomTabInset } from "@/constants/theme";
 
 type ScreenContentProps = {
   children: ReactNode;
@@ -11,14 +12,16 @@ export default function ScreenContent({
   children,
 }: ScreenContentProps) {
   return (
-    <View
-      style={{
-        flex: 1,
+    <ScrollView
+      style={{ flex: 1 }}
+      contentContainerStyle={{
         paddingHorizontal: Spacing.screenHorizontal,
-        paddingVertical:Spacing.screenVertical
+        paddingTop: Spacing.screenVertical,
+        paddingBottom: BottomTabInset,
       }}
+      showsVerticalScrollIndicator={false}
     >
       {children}
-    </View>
+    </ScrollView>
   );
 }
