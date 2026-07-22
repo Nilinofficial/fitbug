@@ -2,6 +2,7 @@ export type ThemeTokens = {
     background: string;
     surface: string;
     surfaceMuted: string;
+    navBackground: string;
     textPrimary: string;
     textSecondary: string;
     border: string;
@@ -15,6 +16,7 @@ export const LIGHT: ThemeTokens = {
     background: "#F5F6FA",
     surface: "#ffffff",
     surfaceMuted: "#EDEEF2",
+    navBackground: "#ffffff",
     textPrimary: "#20242d",
     textSecondary: "#9599a5",
     border: "#E4E6ED",
@@ -28,6 +30,7 @@ export const DARK: ThemeTokens = {
     background: "#121316",
     surface: "#1C1E22",
     surfaceMuted: "#26282D",
+    navBackground: "#2C2F36",
     textPrimary: "#F5F6FA",
     textSecondary: "#A0A4B0",
     border: "#33353B",

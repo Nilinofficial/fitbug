@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useMemo, useState } from "react";
-import { Alert, Dimensions, Pressable, Text, View } from "react-native";
+import { Dimensions, Pressable, Text, View } from "react-native";
 import { BarChart, LineChart } from "react-native-chart-kit";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -8,6 +8,7 @@ import { bucketProgress } from "@/algorithms/progressAlgorithm";
 import BottomNav from "@/components/custom/BottomNav";
 import CalorieBurnedCard from "@/components/custom/CalorieBurnedCard";
 import Header from "@/components/custom/Header";
+import InfoDialog from "@/components/custom/InfoDialog";
 import ScreenContent from "@/components/wrappers/ScreenWrapper";
 import { Fonts } from "@/constants/fonts";
 import { Spacing } from "@/constants/spacing";
@@ -40,6 +41,7 @@ export default function ProgressScreen() {
     const [pickerOpen, setPickerOpen] = useState(false);
     const [granularity, setGranularity] = useState<Granularity>("week");
     const [frequency, setFrequency] = useState(() => getWeeklyWorkoutFrequency(4));
+    const [show1RMInfo, setShow1RMInfo] = useState(false);
 
     useFocusRefresh(() => {
         const names = getLoggedExerciseNames();
@@ -197,15 +199,7 @@ export default function ProgressScreen() {
                                     <Text style={{ color: colors.textSecondary, fontSize: 13, fontFamily: Fonts.regular }}>
                                         Estimated 1RM
                                     </Text>
-                                    <Pressable
-                                        onPress={() =>
-                                            Alert.alert(
-                                                "What is 1RM?",
-                                                "Your estimated one-rep max — the heaviest weight you could probably lift for a single rep, calculated from your logged sets. It's a way to track how much stronger you're getting, even though you never actually attempt a true 1-rep lift."
-                                            )
-                                        }
-                                        hitSlop={8}
-                                    >
+                                    <Pressable onPress={() => setShow1RMInfo(true)} hitSlop={8}>
                                         <Ionicons name="information-circle-outline" size={16} color={colors.textSecondary} />
                                     </Pressable>
                                 </View>
@@ -264,6 +258,13 @@ export default function ProgressScreen() {
                 )}
             </ScreenContent>
             <BottomNav />
+
+            <InfoDialog
+                visible={show1RMInfo}
+                title="What is 1RM?"
+                message="Your estimated one-rep max — the heaviest weight you could probably lift for a single rep, calculated from your logged sets. It's a way to track how much stronger you're getting, even though you never actually attempt a true 1-rep lift."
+                onClose={() => setShow1RMInfo(false)}
+            />
         </SafeAreaView>
     );
 }

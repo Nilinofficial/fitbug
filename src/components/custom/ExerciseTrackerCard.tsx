@@ -1,7 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useRef, useState } from "react";
-import { Alert, Pressable, Text, TextInput, View } from "react-native";
+import { Pressable, Text, TextInput, View } from "react-native";
 
+import ConfirmDialog from "@/components/custom/ConfirmDialog";
 import { Fonts } from "@/constants/fonts";
 import { useAppTheme } from "@/theme/ThemeProvider";
 import { WorkoutExercise } from "@/types/workout";
@@ -70,16 +71,12 @@ const ExerciseTrackerCard = ({
     onRemove,
 }: ExerciseTrackerCardProps) => {
     const { colors } = useAppTheme();
+    const [confirmVisible, setConfirmVisible] = useState(false);
 
     const lastSet = exercise.sets[exercise.sets.length - 1];
     const canRepeat = Boolean(lastSet && (lastSet.weight > 0 || lastSet.reps > 0));
 
-    const handleRemove = () => {
-        Alert.alert("Remove exercise", `Remove ${exercise.name} from this workout?`, [
-            { text: "Cancel", style: "cancel" },
-            { text: "Remove", style: "destructive", onPress: onRemove },
-        ]);
-    };
+    const handleRemove = () => setConfirmVisible(true);
 
     return (
         <View
@@ -312,6 +309,18 @@ const ExerciseTrackerCard = ({
                     </Text>
                 </Pressable>
             </View>
+
+            <ConfirmDialog
+                visible={confirmVisible}
+                title="Remove exercise"
+                message={`Remove ${exercise.name} from this workout?`}
+                confirmLabel="Remove"
+                onConfirm={() => {
+                    setConfirmVisible(false);
+                    onRemove();
+                }}
+                onCancel={() => setConfirmVisible(false)}
+            />
         </View>
     );
 };

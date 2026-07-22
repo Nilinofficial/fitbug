@@ -1,11 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
-import { Alert, Pressable, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { estimateWorkoutCalories } from "@/algorithms/calorieAlgorithm";
 import BottomNav from "@/components/custom/BottomNav";
+import ConfirmDialog from "@/components/custom/ConfirmDialog";
 import Header from "@/components/custom/Header";
 import ScreenContent from "@/components/wrappers/ScreenWrapper";
 import { Fonts } from "@/constants/fonts";
@@ -37,22 +38,15 @@ export default function HistoryScreen() {
 
     const groups = useMemo(() => groupByMonth(history), [history]);
 
-    const handleDelete = (workout: WorkoutSummary) => {
-        Alert.alert(
-            "Delete workout",
-            `Are you sure you want to delete "${workout.title}"? This can't be undone.`,
-            [
-                { text: "Cancel", style: "cancel" },
-                {
-                    text: "Delete",
-                    style: "destructive",
-                    onPress: () => {
-                        deleteWorkout(workout.id);
-                        setHistory(getWorkoutHistory());
-                    },
-                },
-            ]
-        );
+    const [workoutToDelete, setWorkoutToDelete] = useState<WorkoutSummary | null>(null);
+
+    const handleDelete = (workout: WorkoutSummary) => setWorkoutToDelete(workout);
+
+    const confirmDelete = () => {
+        if (!workoutToDelete) return;
+        deleteWorkout(workoutToDelete.id);
+        setHistory(getWorkoutHistory());
+        setWorkoutToDelete(null);
     };
 
     return (
@@ -217,6 +211,19 @@ export default function HistoryScreen() {
                 )}
             </ScreenContent>
             <BottomNav />
+
+            <ConfirmDialog
+                visible={workoutToDelete !== null}
+                title="Delete workout"
+                message={
+                    workoutToDelete
+                        ? `Are you sure you want to delete "${workoutToDelete.title}"? This can't be undone.`
+                        : ""
+                }
+                confirmLabel="Delete"
+                onConfirm={confirmDelete}
+                onCancel={() => setWorkoutToDelete(null)}
+            />
         </SafeAreaView>
     );
 }

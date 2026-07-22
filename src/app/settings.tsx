@@ -1,6 +1,7 @@
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
 import { File, Paths } from "expo-file-system";
+import * as ImagePicker from "expo-image-picker";
 import * as Sharing from "expo-sharing";
 import type { ComponentProps, ReactNode } from "react";
 import { useState } from "react";
@@ -9,15 +10,23 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import appJson from "../../app.json";
 
+import Avatar from "@/components/custom/Avatar";
 import BottomNav from "@/components/custom/BottomNav";
+import ConfirmDialog from "@/components/custom/ConfirmDialog";
 import Header from "@/components/custom/Header";
 import TimeStepper from "@/components/custom/TimeStepper";
+import Toast from "@/components/custom/Toast";
 import ScreenContent from "@/components/wrappers/ScreenWrapper";
 import { Fonts } from "@/constants/fonts";
 import { BackupData, exportAllData, importAllData } from "@/db/backup";
 import { getProfile, Profile, saveProfile } from "@/db/profile";
 import { formatReminderTime, formatReminderTimeDisplay, parseReminderTime } from "@/lib/format";
-import { cancelGymReminder, requestNotificationPermission, scheduleGymReminder } from "@/notifications/reminderNotifications";
+import {
+    cancelGymReminder,
+    requestNotificationPermission,
+    scheduleGymReminder,
+    sendTestNotification,
+} from "@/notifications/reminderNotifications";
 import { ThemePreference, useAppTheme } from "@/theme/ThemeProvider";
 import { ThemeTokens } from "@/theme/tokens";
 
@@ -138,6 +147,8 @@ export default function SettingsScreen() {
     const [timeEditorOpen, setTimeEditorOpen] = useState(false);
     const [draftHour, setDraftHour] = useState(18);
     const [draftMinute, setDraftMinute] = useState(0);
+    const [pendingImport, setPendingImport] = useState<BackupData | null>(null);
+    const [toastMessage, setToastMessage] = useState<string | null>(null);
 
     const persistProfile = (updated: Profile) => {
         saveProfile({
@@ -152,6 +163,28 @@ export default function SettingsScreen() {
             profilePicture: updated.profile_picture,
         });
         setProfile(updated);
+    };
+
+    const handleEditPhoto = async () => {
+        if (!profile) return;
+
+        const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!permission.granted) {
+            Alert.alert("Permission needed", "Photo library permission is required to set a profile picture.");
+            return;
+        }
+
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ["images"],
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.6,
+        });
+
+        if (!result.canceled && result.assets[0]) {
+            persistProfile({ ...profile, profile_picture: result.assets[0].uri });
+            setToastMessage("Profile picture updated");
+        }
     };
 
     const openEditor = (field: FieldConfig) => {
@@ -202,23 +235,59 @@ export default function SettingsScreen() {
         if (!profile) return;
         const reminderTime = formatReminderTime(draftHour, draftMinute);
         const updated: Profile = { ...profile, reminder_time: reminderTime };
-        persistProfile(updated);
         setTimeEditorOpen(false);
+
         if (updated.reminders_enabled) {
+            const granted = await requestNotificationPermission();
+            if (!granted) {
+                persistProfile({ ...updated, reminders_enabled: 0 });
+                Alert.alert(
+                    "Notifications disabled",
+                    "FitBug doesn't have notification permission, so gym reminders were turned off. Enable notifications for FitBug in your device settings, then turn Workout Reminders back on."
+                );
+                return;
+            }
             await scheduleGymReminder(reminderTime);
         }
+
+        persistProfile(updated);
     };
 
     const handleToggleReminders = async (enabled: boolean) => {
         if (!profile) return;
-        const updated: Profile = { ...profile, reminders_enabled: enabled ? 1 : 0 };
-        persistProfile(updated);
 
         if (enabled) {
             const granted = await requestNotificationPermission();
-            if (granted) await scheduleGymReminder(updated.reminder_time);
+            if (!granted) {
+                Alert.alert(
+                    "Permission needed",
+                    "FitBug needs notification permission to send gym reminders. Enable notifications for FitBug in your device settings and try again."
+                );
+                return;
+            }
+            persistProfile({ ...profile, reminders_enabled: 1 });
+            await scheduleGymReminder(profile.reminder_time);
         } else {
+            persistProfile({ ...profile, reminders_enabled: 0 });
             await cancelGymReminder();
+        }
+    };
+
+    const handleSendTestNotification = async () => {
+        const granted = await requestNotificationPermission();
+        if (!granted) {
+            Alert.alert(
+                "Permission needed",
+                "FitBug doesn't have notification permission. Enable notifications for FitBug in your device settings and try again."
+            );
+            return;
+        }
+
+        const sent = await sendTestNotification();
+        if (sent) {
+            setToastMessage("Test notification sent — check your notification shade");
+        } else {
+            Alert.alert("Couldn't send test notification", "Something went wrong. Please try again.");
         }
     };
 
@@ -247,32 +316,26 @@ export default function SettingsScreen() {
         try {
             const file = new File(result.assets[0].uri);
             const data = JSON.parse(file.textSync()) as BackupData;
-
-            Alert.alert(
-                "Import data",
-                "This replaces all current data on this device (profile, workouts, and custom workouts) with the contents of this backup. Continue?",
-                [
-                    { text: "Cancel", style: "cancel" },
-                    {
-                        text: "Import",
-                        style: "destructive",
-                        onPress: async () => {
-                            importAllData(data);
-                            const restored = getProfile();
-                            setProfile(restored);
-                            if (restored?.reminders_enabled) {
-                                await scheduleGymReminder(restored.reminder_time);
-                            } else {
-                                await cancelGymReminder();
-                            }
-                            Alert.alert("Import complete", "Your data has been restored.");
-                        },
-                    },
-                ]
-            );
+            setPendingImport(data);
         } catch {
             Alert.alert("Import failed", "That file doesn't look like a valid fitbug backup.");
         }
+    };
+
+    const confirmImportData = async () => {
+        if (!pendingImport) return;
+        const data = pendingImport;
+        setPendingImport(null);
+
+        importAllData(data);
+        const restored = getProfile();
+        setProfile(restored);
+        if (restored?.reminders_enabled) {
+            await scheduleGymReminder(restored.reminder_time);
+        } else {
+            await cancelGymReminder();
+        }
+        Alert.alert("Import complete", "Your data has been restored.");
     };
 
     return (
@@ -287,6 +350,34 @@ export default function SettingsScreen() {
                     <Text style={{ color: colors.textSecondary, fontSize: 14, fontFamily: Fonts.regular }}>
                         Customize your fitbug experience.
                     </Text>
+                </View>
+
+                <View style={{ alignItems: "center", gap: 10, marginBottom: 20 }}>
+                    <Pressable onPress={handleEditPhoto}>
+                        <Avatar uri={profile?.profile_picture} gender={profile?.gender} size={88} />
+                        <View
+                            style={{
+                                position: "absolute",
+                                right: 0,
+                                bottom: 0,
+                                width: 28,
+                                height: 28,
+                                borderRadius: 14,
+                                backgroundColor: "#1263df",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                borderWidth: 2,
+                                borderColor: colors.background,
+                            }}
+                        >
+                            <Ionicons name="camera" size={14} color="#ffffff" />
+                        </View>
+                    </Pressable>
+                    <Pressable onPress={handleEditPhoto}>
+                        <Text style={{ color: "#1263df", fontSize: 13, fontFamily: Fonts.bold }}>
+                            Edit Photo
+                        </Text>
+                    </Pressable>
                 </View>
 
                 <Text style={{ color: colors.textPrimary, fontSize: 16, fontFamily: Fonts.bold, marginBottom: 10 }}>
@@ -378,9 +469,17 @@ export default function SettingsScreen() {
                         <>
                             <Divider colors={colors} />
                             <SettingsRow
-                                label="Reminder Time"
+                                label="Gym Time"
                                 value={formatReminderTimeDisplay(profile.reminder_time)}
                                 onPress={openTimeEditor}
+                                colors={colors}
+                            />
+                            <Divider colors={colors} />
+                            <SettingsRow
+                                icon="paper-plane-outline"
+                                label="Send Test Notification"
+                                value=""
+                                onPress={handleSendTestNotification}
                                 colors={colors}
                             />
                         </>
@@ -490,7 +589,7 @@ export default function SettingsScreen() {
                 >
                     <View style={{ backgroundColor: colors.surface, borderRadius: 20, padding: 20, gap: 18 }}>
                         <Text style={{ color: colors.textPrimary, fontSize: 17, fontFamily: Fonts.bold }}>
-                            Reminder Time
+                            Gym Time
                         </Text>
 
                         <TimeStepper
@@ -537,6 +636,21 @@ export default function SettingsScreen() {
                     </View>
                 </View>
             </Modal>
+
+            <ConfirmDialog
+                visible={pendingImport !== null}
+                title="Import data"
+                message="This replaces all current data on this device (profile, workouts, and custom workouts) with the contents of this backup. Continue?"
+                confirmLabel="Import"
+                onConfirm={confirmImportData}
+                onCancel={() => setPendingImport(null)}
+            />
+
+            <Toast
+                visible={toastMessage !== null}
+                message={toastMessage ?? ""}
+                onHide={() => setToastMessage(null)}
+            />
         </SafeAreaView>
     );
 }

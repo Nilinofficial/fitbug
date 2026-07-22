@@ -2,8 +2,9 @@ import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import type { ComponentProps } from "react";
 import { useMemo, useState } from "react";
-import { Alert, Pressable, Text, TextInput, View } from "react-native";
+import { Pressable, Text, TextInput, View } from "react-native";
 
+import ConfirmDialog from "@/components/custom/ConfirmDialog";
 import ExerciseIcon from "@/components/custom/ExerciseIcon";
 import SectionHeader from "@/components/custom/SectionHeader";
 import { EXERCISE_LIBRARY } from "@/constants/exercises";
@@ -52,20 +53,17 @@ const ExercisePicker = ({
         [customWorkouts, excludeIds]
     );
 
-    const handleDeleteRoutine = (routine: CustomWorkoutSummary) => {
-        Alert.alert("Delete workout", `Delete "${routine.name}"? This can't be undone.`, [
-            { text: "Cancel", style: "cancel" },
-            {
-                text: "Delete",
-                style: "destructive",
-                onPress: () => {
-                    const templateId = customWorkoutTemplateId(routine.id);
-                    if (selectedIds.includes(templateId)) onToggle(templateId);
-                    deleteCustomWorkout(routine.id);
-                    setCustomWorkouts(getCustomWorkouts());
-                },
-            },
-        ]);
+    const [routineToDelete, setRoutineToDelete] = useState<CustomWorkoutSummary | null>(null);
+
+    const handleDeleteRoutine = (routine: CustomWorkoutSummary) => setRoutineToDelete(routine);
+
+    const confirmDeleteRoutine = () => {
+        if (!routineToDelete) return;
+        const templateId = customWorkoutTemplateId(routineToDelete.id);
+        if (selectedIds.includes(templateId)) onToggle(templateId);
+        deleteCustomWorkout(routineToDelete.id);
+        setCustomWorkouts(getCustomWorkouts());
+        setRoutineToDelete(null);
     };
 
     const exercises = useMemo(() => {
@@ -319,6 +317,15 @@ const ExercisePicker = ({
                     </Text>
                 </View>
             </View>
+
+            <ConfirmDialog
+                visible={routineToDelete !== null}
+                title="Delete workout"
+                message={routineToDelete ? `Delete "${routineToDelete.name}"? This can't be undone.` : ""}
+                confirmLabel="Delete"
+                onConfirm={confirmDeleteRoutine}
+                onCancel={() => setRoutineToDelete(null)}
+            />
         </View>
     );
 };
