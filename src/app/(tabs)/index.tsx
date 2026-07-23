@@ -1,5 +1,4 @@
 
-import BottomNav from "@/components/custom/BottomNav";
 import GoalCard from "@/components/custom/GoalCard";
 import Header from "@/components/custom/Header";
 import PersonalRecords from "@/components/custom/PersonalRecords";
@@ -44,7 +43,6 @@ export default function HomeScreen() {
           <View style={{ height: 24 }} />
           <RecentActivities />
         </ScreenContent>
-        <BottomNav />
       </SafeAreaView>
 
   );

@@ -334,9 +334,9 @@ export default function GoalScreen() {
                                     lineHeight: 17,
                                 }}
                             >
-                                This is a nutrition target — diet drives most of it. Exercise is one lever on top:{" "}
+                                This is a nutrition target, and diet drives most of it. Exercise is one lever on top:{" "}
                                 {workoutsPerWeekForGoal != null
-                                    ? `at your average ~${avgCaloriesPerWorkout} kcal/workout, closing this gap through exercise alone would take about ${workoutsPerWeekForGoal.toFixed(1)} sessions/week — combining training with your calorie target is the sustainable way to get there.`
+                                    ? `at your average ~${avgCaloriesPerWorkout} kcal/workout, closing this gap through exercise alone would take about ${workoutsPerWeekForGoal.toFixed(1)} sessions/week. Combining training with your calorie target is the sustainable way to get there.`
                                     : "log a few workouts so we can estimate how much exercise can realistically contribute."}
                             </Text>
                         </View>

@@ -5,7 +5,6 @@ import { BarChart, LineChart } from "react-native-chart-kit";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { bucketProgress } from "@/algorithms/progressAlgorithm";
-import BottomNav from "@/components/custom/BottomNav";
 import CalorieBurnedCard from "@/components/custom/CalorieBurnedCard";
 import Header from "@/components/custom/Header";
 import InfoDialog from "@/components/custom/InfoDialog";
@@ -257,12 +256,11 @@ export default function ProgressScreen() {
                     </View>
                 )}
             </ScreenContent>
-            <BottomNav />
 
             <InfoDialog
                 visible={show1RMInfo}
                 title="What is 1RM?"
-                message="Your estimated one-rep max — the heaviest weight you could probably lift for a single rep, calculated from your logged sets. It's a way to track how much stronger you're getting, even though you never actually attempt a true 1-rep lift."
+                message="Your estimated one-rep max is the heaviest weight you could probably lift for a single rep, calculated from your logged sets. It's a way to track how much stronger you're getting, even though you never actually attempt a true 1-rep lift."
                 onClose={() => setShow1RMInfo(false)}
             />
         </SafeAreaView>

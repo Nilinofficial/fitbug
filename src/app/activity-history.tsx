@@ -53,7 +53,7 @@ export default function ActivityHistoryScreen() {
                 {months.length === 0 ? (
                     <View style={{ backgroundColor: colors.surface, borderRadius: 16, padding: 16 }}>
                         <Text style={{ color: colors.textSecondary, fontSize: 13, fontFamily: Fonts.regular }}>
-                            No workouts yet — start one from Home.
+                            No workouts yet. Start one from Home.
                         </Text>
                     </View>
                 ) : (

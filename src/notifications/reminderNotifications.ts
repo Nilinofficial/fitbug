@@ -83,7 +83,7 @@ export const scheduleGymReminder = async (gymTime: string) => {
         await Notifications.scheduleNotificationAsync({
             content: {
                 title: "Ready to hit the gym? 💪",
-                body: "A little sweat today buys you energy, mood, and strength tomorrow — let's make it count.",
+                body: "A little sweat today buys you energy, mood, and strength tomorrow. Let's make it count.",
                 // On Android, actual sound playback is governed by the channel's sound
                 // (set in ensureNotificationChannel); a string here is looked up as a
                 // custom sound file, so only `true`/`false` are valid at the content level.

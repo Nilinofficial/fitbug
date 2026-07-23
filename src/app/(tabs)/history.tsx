@@ -5,7 +5,6 @@ import { Pressable, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { estimateWorkoutCalories } from "@/algorithms/calorieAlgorithm";
-import BottomNav from "@/components/custom/BottomNav";
 import ConfirmDialog from "@/components/custom/ConfirmDialog";
 import Header from "@/components/custom/Header";
 import ScreenContent from "@/components/wrappers/ScreenWrapper";
@@ -72,7 +71,7 @@ export default function HistoryScreen() {
                         }}
                     >
                         <Text style={{ color: colors.textSecondary, fontSize: 13, fontFamily: Fonts.regular }}>
-                            No workouts yet — start one from Home.
+                            No workouts yet. Start one from Home.
                         </Text>
                     </View>
                 ) : (
@@ -210,7 +209,6 @@ export default function HistoryScreen() {
                     ))
                 )}
             </ScreenContent>
-            <BottomNav />
 
             <ConfirmDialog
                 visible={workoutToDelete !== null}

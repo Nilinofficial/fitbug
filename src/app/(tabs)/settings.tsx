@@ -8,9 +8,8 @@ import { useState } from "react";
 import { Alert, Linking, Modal, Pressable, Switch, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import appJson from "../../app.json";
+import appJson from "../../../app.json";
 
-import BottomNav from "@/components/custom/BottomNav";
 import ConfirmDialog from "@/components/custom/ConfirmDialog";
 import Header from "@/components/custom/Header";
 import TimeStepper from "@/components/custom/TimeStepper";
@@ -490,8 +489,6 @@ export default function SettingsScreen() {
                     />
                 </SectionCard>
             </ScreenContent>
-
-            <BottomNav />
 
             <Modal visible={editingField !== null} transparent animationType="fade" onRequestClose={closeEditor}>
                 <View
