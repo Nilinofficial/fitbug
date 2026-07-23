@@ -5,14 +5,22 @@ import { Animated, Text, View } from "react-native";
 import { Fonts } from "@/constants/fonts";
 import { useAppTheme } from "@/theme/ThemeProvider";
 
+type ToastVariant = "success" | "error";
+
 type ToastProps = {
     visible: boolean;
     message: string;
     onHide: () => void;
+    variant?: ToastVariant;
     duration?: number;
 };
 
-const Toast = ({ visible, message, onHide, duration = 2200 }: ToastProps) => {
+const VARIANT_ICON: Record<ToastVariant, { name: keyof typeof Ionicons.glyphMap; color: string }> = {
+    success: { name: "checkmark-circle", color: "#16A34A" },
+    error: { name: "alert-circle", color: "#e2703a" },
+};
+
+const Toast = ({ visible, message, onHide, variant = "success", duration = 2200 }: ToastProps) => {
     const { colors } = useAppTheme();
     const opacity = useRef(new Animated.Value(0)).current;
     const translateY = useRef(new Animated.Value(12)).current;
@@ -35,6 +43,8 @@ const Toast = ({ visible, message, onHide, duration = 2200 }: ToastProps) => {
     }, [visible]);
 
     if (!visible) return null;
+
+    const icon = VARIANT_ICON[variant];
 
     return (
         <Animated.View
@@ -65,7 +75,7 @@ const Toast = ({ visible, message, onHide, duration = 2200 }: ToastProps) => {
                     elevation: 6,
                 }}
             >
-                <Ionicons name="checkmark-circle" size={18} color="#16A34A" />
+                <Ionicons name={icon.name} size={18} color={icon.color} />
                 <Text style={{ color: colors.background, fontSize: 13, fontFamily: Fonts.medium }}>
                     {message}
                 </Text>

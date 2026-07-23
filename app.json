@@ -46,12 +46,6 @@
       "expo-sqlite",
       "expo-sharing",
       [
-        "expo-image-picker",
-        {
-          "photosPermission": "FitBug uses your photo library so you can set a profile picture."
-        }
-      ],
-      [
         "expo-notifications",
         {
           "icon": "./assets/images/logo.png",

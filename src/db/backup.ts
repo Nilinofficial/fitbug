@@ -96,8 +96,8 @@ export const importAllData = (data: BackupData): void => {
 
         if (data.profile) {
             db.runSync(
-                `INSERT INTO profile (id, name, age, weight_kg, height_cm, reminder_time, reminders_enabled, theme, gender, profile_picture, created_at)
-                 VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                `INSERT INTO profile (id, name, age, weight_kg, height_cm, reminder_time, reminders_enabled, theme, gender, target_weight_kg, goal, created_at)
+                 VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 [
                     data.profile.name,
                     data.profile.age,
@@ -107,7 +107,8 @@ export const importAllData = (data: BackupData): void => {
                     data.profile.reminders_enabled,
                     data.profile.theme,
                     data.profile.gender,
-                    data.profile.profile_picture,
+                    data.profile.target_weight_kg,
+                    data.profile.goal,
                     data.profile.created_at,
                 ]
             );

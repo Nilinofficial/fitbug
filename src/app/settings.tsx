@@ -1,7 +1,7 @@
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
 import { File, Paths } from "expo-file-system";
-import * as ImagePicker from "expo-image-picker";
+import { useRouter } from "expo-router";
 import * as Sharing from "expo-sharing";
 import type { ComponentProps, ReactNode } from "react";
 import { useState } from "react";
@@ -10,16 +10,14 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import appJson from "../../app.json";
 
-import Avatar from "@/components/custom/Avatar";
 import BottomNav from "@/components/custom/BottomNav";
 import ConfirmDialog from "@/components/custom/ConfirmDialog";
 import Header from "@/components/custom/Header";
 import TimeStepper from "@/components/custom/TimeStepper";
-import Toast from "@/components/custom/Toast";
 import ScreenContent from "@/components/wrappers/ScreenWrapper";
 import { Fonts } from "@/constants/fonts";
 import { BackupData, exportAllData, importAllData } from "@/db/backup";
-import { getProfile, Profile, saveProfile } from "@/db/profile";
+import { Gender, getProfile, Profile, saveProfile } from "@/db/profile";
 import { formatReminderTime, formatReminderTimeDisplay, parseReminderTime } from "@/lib/format";
 import {
     cancelGymReminder,
@@ -80,12 +78,16 @@ const ACCOUNT_FIELDS: FieldConfig[] = [
 
 const PRIVACY_POLICY_URL = "https://fitbug-website.vercel.app/privacy";
 const TERMS_URL = "https://fitbug-website.vercel.app/terms";
-const CONTACT_SUPPORT_URL = "https://www.instagram.com/bybug_";
 
 const THEME_OPTIONS: { label: string; value: ThemePreference }[] = [
     { label: "Light", value: "light" },
     { label: "Dark", value: "dark" },
     { label: "System", value: "system" },
+];
+
+const GENDER_OPTIONS: { label: string; value: Gender }[] = [
+    { label: "Male", value: "male" },
+    { label: "Female", value: "female" },
 ];
 
 const SettingsRow = ({
@@ -142,6 +144,7 @@ const Divider = ({ colors }: { colors: ThemeTokens }) => (
 );
 
 export default function SettingsScreen() {
+    const router = useRouter();
     const { preference, setPreference, colors } = useAppTheme();
     const [profile, setProfile] = useState<Profile | null>(() => getProfile());
     const [editingField, setEditingField] = useState<FieldConfig | null>(null);
@@ -151,7 +154,8 @@ export default function SettingsScreen() {
     const [draftHour, setDraftHour] = useState(18);
     const [draftMinute, setDraftMinute] = useState(0);
     const [pendingImport, setPendingImport] = useState<BackupData | null>(null);
-    const [toastMessage, setToastMessage] = useState<string | null>(null);
+    const [genderEditorOpen, setGenderEditorOpen] = useState(false);
+    const [draftGender, setDraftGender] = useState<Gender>("male");
 
     const persistProfile = (updated: Profile) => {
         saveProfile({
@@ -163,31 +167,20 @@ export default function SettingsScreen() {
             remindersEnabled: Boolean(updated.reminders_enabled),
             theme: updated.theme,
             gender: updated.gender,
-            profilePicture: updated.profile_picture,
         });
         setProfile(updated);
     };
 
-    const handleEditPhoto = async () => {
+    const openGenderEditor = () => {
         if (!profile) return;
+        setDraftGender(profile.gender);
+        setGenderEditorOpen(true);
+    };
 
-        const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (!permission.granted) {
-            Alert.alert("Permission needed", "Photo library permission is required to set a profile picture.");
-            return;
-        }
-
-        const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ["images"],
-            allowsEditing: true,
-            aspect: [1, 1],
-            quality: 0.6,
-        });
-
-        if (!result.canceled && result.assets[0]) {
-            persistProfile({ ...profile, profile_picture: result.assets[0].uri });
-            setToastMessage("Profile picture updated");
-        }
+    const handleSaveGender = () => {
+        if (!profile) return;
+        persistProfile({ ...profile, gender: draftGender });
+        setGenderEditorOpen(false);
     };
 
     const openEditor = (field: FieldConfig) => {
@@ -337,40 +330,12 @@ export default function SettingsScreen() {
                     </Text>
                 </View>
 
-                <View style={{ alignItems: "center", gap: 10, marginBottom: 20 }}>
-                    <Pressable onPress={handleEditPhoto}>
-                        <Avatar uri={profile?.profile_picture} gender={profile?.gender} size={88} />
-                        <View
-                            style={{
-                                position: "absolute",
-                                right: 0,
-                                bottom: 0,
-                                width: 28,
-                                height: 28,
-                                borderRadius: 14,
-                                backgroundColor: "#1263df",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                borderWidth: 2,
-                                borderColor: colors.background,
-                            }}
-                        >
-                            <Ionicons name="camera" size={14} color="#ffffff" />
-                        </View>
-                    </Pressable>
-                    <Pressable onPress={handleEditPhoto}>
-                        <Text style={{ color: "#1263df", fontSize: 13, fontFamily: Fonts.bold }}>
-                            Edit Photo
-                        </Text>
-                    </Pressable>
-                </View>
-
                 <Text style={{ color: colors.textPrimary, fontSize: 16, fontFamily: Fonts.bold, marginBottom: 10 }}>
                     Account
                 </Text>
                 <SectionCard colors={colors}>
                     {profile
-                        ? ACCOUNT_FIELDS.map((field, index) => (
+                        ? ACCOUNT_FIELDS.map((field) => (
                               <View key={field.key}>
                                   <SettingsRow
                                       icon={field.icon}
@@ -380,10 +345,32 @@ export default function SettingsScreen() {
                                       onPress={() => openEditor(field)}
                                       colors={colors}
                                   />
-                                  {index < ACCOUNT_FIELDS.length - 1 ? <Divider colors={colors} /> : null}
+                                  <Divider colors={colors} />
                               </View>
                           ))
                         : null}
+                    {profile ? (
+                        <SettingsRow
+                            icon={profile.gender === "female" ? "woman-outline" : "man-outline"}
+                            label="Gender"
+                            value={profile.gender === "female" ? "Female" : "Male"}
+                            onPress={openGenderEditor}
+                            colors={colors}
+                        />
+                    ) : null}
+                </SectionCard>
+
+                <Text style={{ color: colors.textPrimary, fontSize: 16, fontFamily: Fonts.bold, marginBottom: 10 }}>
+                    Goal
+                </Text>
+                <SectionCard colors={colors}>
+                    <SettingsRow
+                        icon="flag-outline"
+                        label="Target Weight & Goal"
+                        value={profile?.target_weight_kg != null ? `${profile.target_weight_kg} kg` : "Not set"}
+                        onPress={() => router.push("/goal")}
+                        colors={colors}
+                    />
                 </SectionCard>
 
                 <Text style={{ color: colors.textPrimary, fontSize: 16, fontFamily: Fonts.bold, marginBottom: 10 }}>
@@ -498,7 +485,7 @@ export default function SettingsScreen() {
                         icon="chatbubble-ellipses-outline"
                         label="Contact Support"
                         value=""
-                        onPress={() => Linking.openURL(CONTACT_SUPPORT_URL)}
+                        onPress={() => router.push("/contact-support")}
                         colors={colors}
                     />
                 </SectionCard>
@@ -632,6 +619,93 @@ export default function SettingsScreen() {
                 </View>
             </Modal>
 
+            <Modal visible={genderEditorOpen} transparent animationType="fade" onRequestClose={() => setGenderEditorOpen(false)}>
+                <View
+                    style={{
+                        flex: 1,
+                        backgroundColor: "rgba(32,36,45,0.4)",
+                        justifyContent: "center",
+                        paddingHorizontal: 24,
+                    }}
+                >
+                    <View style={{ backgroundColor: colors.surface, borderRadius: 20, padding: 20, gap: 18 }}>
+                        <Text style={{ color: colors.textPrimary, fontSize: 17, fontFamily: Fonts.bold }}>
+                            Gender
+                        </Text>
+
+                        <View style={{ flexDirection: "row", gap: 10 }}>
+                            {GENDER_OPTIONS.map((option) => {
+                                const selected = draftGender === option.value;
+                                return (
+                                    <Pressable
+                                        key={option.value}
+                                        onPress={() => setDraftGender(option.value)}
+                                        style={{
+                                            flex: 1,
+                                            flexDirection: "row",
+                                            alignItems: "center",
+                                            justifyContent: "center",
+                                            gap: 6,
+                                            paddingVertical: 12,
+                                            borderRadius: 14,
+                                            backgroundColor: selected ? colors.tintBlueBg : colors.surfaceMuted,
+                                            borderWidth: selected ? 1 : 0,
+                                            borderColor: "#1263df",
+                                        }}
+                                    >
+                                        <Ionicons
+                                            name={option.value === "female" ? "woman" : "man"}
+                                            size={16}
+                                            color={selected ? "#1263df" : colors.textSecondary}
+                                        />
+                                        <Text
+                                            style={{
+                                                color: selected ? "#1263df" : colors.textSecondary,
+                                                fontSize: 13,
+                                                fontFamily: selected ? Fonts.bold : Fonts.medium,
+                                            }}
+                                        >
+                                            {option.label}
+                                        </Text>
+                                    </Pressable>
+                                );
+                            })}
+                        </View>
+
+                        <View style={{ flexDirection: "row", gap: 10 }}>
+                            <Pressable
+                                onPress={() => setGenderEditorOpen(false)}
+                                style={{
+                                    flex: 1,
+                                    alignItems: "center",
+                                    paddingVertical: 12,
+                                    borderRadius: 30,
+                                    backgroundColor: colors.surfaceMuted,
+                                }}
+                            >
+                                <Text style={{ color: colors.textPrimary, fontSize: 14, fontFamily: Fonts.bold }}>
+                                    Cancel
+                                </Text>
+                            </Pressable>
+                            <Pressable
+                                onPress={handleSaveGender}
+                                style={{
+                                    flex: 1,
+                                    alignItems: "center",
+                                    paddingVertical: 12,
+                                    borderRadius: 30,
+                                    backgroundColor: "#1263df",
+                                }}
+                            >
+                                <Text style={{ color: "#ffffff", fontSize: 14, fontFamily: Fonts.bold }}>
+                                    Save
+                                </Text>
+                            </Pressable>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
+
             <ConfirmDialog
                 visible={pendingImport !== null}
                 title="Import data"
@@ -639,12 +713,6 @@ export default function SettingsScreen() {
                 confirmLabel="Import"
                 onConfirm={confirmImportData}
                 onCancel={() => setPendingImport(null)}
-            />
-
-            <Toast
-                visible={toastMessage !== null}
-                message={toastMessage ?? ""}
-                onHide={() => setToastMessage(null)}
             />
         </SafeAreaView>
     );

@@ -13,6 +13,7 @@ type ExerciseTrackerCardProps = {
     onRepeatLastSet: () => void;
     onUpdateSet: (setId: string, field: "weight" | "reps", delta: number) => void;
     onSetValue: (setId: string, field: "weight" | "reps", value: number) => void;
+    onRemoveSet: (setId: string) => void;
     onRemove: () => void;
 };
 
@@ -35,6 +36,10 @@ const NumberField = ({ value, onChange, color }: NumberFieldProps) => {
             value={text}
             onFocus={() => {
                 focused.current = true;
+                // Starting from the default 0, clear the field so the user can just
+                // type a number instead of fighting with the leading zero. A full
+                // select-all highlight here reads as a stray "copy" box, so we avoid it.
+                if (value === 0) setText("");
             }}
             onBlur={() => {
                 focused.current = false;
@@ -48,7 +53,6 @@ const NumberField = ({ value, onChange, color }: NumberFieldProps) => {
                 const parsed = parseFloat(next);
                 if (Number.isFinite(parsed)) onChange(Math.max(0, parsed));
             }}
-            selectTextOnFocus
             keyboardType="decimal-pad"
             style={{
                 color,
@@ -68,10 +72,24 @@ const ExerciseTrackerCard = ({
     onRepeatLastSet,
     onUpdateSet,
     onSetValue,
+    onRemoveSet,
     onRemove,
 }: ExerciseTrackerCardProps) => {
     const { colors } = useAppTheme();
     const [confirmVisible, setConfirmVisible] = useState(false);
+    const [activeSetId, setActiveSetId] = useState<string | null>(
+        () => exercise.sets[exercise.sets.length - 1]?.id ?? null
+    );
+    const prevSetCount = useRef(exercise.sets.length);
+
+    useEffect(() => {
+        const activeStillExists = exercise.sets.some((set) => set.id === activeSetId);
+        const setWasAdded = exercise.sets.length > prevSetCount.current;
+        if (setWasAdded || !activeStillExists) {
+            setActiveSetId(exercise.sets[exercise.sets.length - 1]?.id ?? null);
+        }
+        prevSetCount.current = exercise.sets.length;
+    }, [exercise.sets, activeSetId]);
 
     const lastSet = exercise.sets[exercise.sets.length - 1];
     const canRepeat = Boolean(lastSet && (lastSet.weight > 0 || lastSet.reps > 0));
@@ -120,7 +138,15 @@ const ExerciseTrackerCard = ({
             </View>
 
             <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 4 }}>
-                <Text style={{ width: 44, color: colors.textSecondary, fontSize: 11, fontFamily: Fonts.medium }}>
+                <Text
+                    style={{
+                        width: 44,
+                        textAlign: "center",
+                        color: colors.textSecondary,
+                        fontSize: 11,
+                        fontFamily: Fonts.medium,
+                    }}
+                >
                     SET
                 </Text>
                 <Text
@@ -145,18 +171,21 @@ const ExerciseTrackerCard = ({
                 >
                     REPS
                 </Text>
+                <View style={{ width: 28 }} />
             </View>
 
             {exercise.sets.map((set, index) => {
-                const isLast = index === exercise.sets.length - 1;
+                const isActive = set.id === activeSetId;
+                const RowContainer = isActive ? View : Pressable;
 
                 return (
-                    <View
+                    <RowContainer
                         key={set.id}
+                        onPress={isActive ? undefined : () => setActiveSetId(set.id)}
                         style={{
                             flexDirection: "row",
                             alignItems: "center",
-                            backgroundColor: isLast ? colors.tintBlueBg : colors.surfaceMuted,
+                            backgroundColor: isActive ? colors.tintBlueBg : colors.surfaceMuted,
                             borderRadius: 14,
                             paddingVertical: 8,
                             paddingHorizontal: 4,
@@ -170,12 +199,12 @@ const ExerciseTrackerCard = ({
                                     borderRadius: 14,
                                     alignItems: "center",
                                     justifyContent: "center",
-                                    backgroundColor: isLast ? "#1263df" : colors.border,
+                                    backgroundColor: isActive ? "#1263df" : colors.border,
                                 }}
                             >
                                 <Text
                                     style={{
-                                        color: isLast ? "#ffffff" : colors.textSecondary,
+                                        color: isActive ? "#ffffff" : colors.textSecondary,
                                         fontSize: 13,
                                         fontFamily: Fonts.bold,
                                     }}
@@ -185,7 +214,7 @@ const ExerciseTrackerCard = ({
                             </View>
                         </View>
 
-                        {isLast ? (
+                        {isActive ? (
                             <>
                                 <View
                                     style={{
@@ -256,7 +285,15 @@ const ExerciseTrackerCard = ({
                                 </Text>
                             </>
                         )}
-                    </View>
+
+                        <View style={{ width: 28, alignItems: "center" }}>
+                            {isActive && exercise.sets.length > 1 ? (
+                                <Pressable onPress={() => onRemoveSet(set.id)} hitSlop={6}>
+                                    <Ionicons name="trash-outline" size={16} color="#e2703a" />
+                                </Pressable>
+                            ) : null}
+                        </View>
+                    </RowContainer>
                 );
             })}
 

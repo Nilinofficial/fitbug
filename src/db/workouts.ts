@@ -1,9 +1,8 @@
 import { db } from "@/db/client";
 import { WorkoutExercise } from "@/types/workout";
 
-const deriveWorkoutTitle = (muscleFields: string[]): string => {
-    const muscles = muscleFields.flatMap((field) => field.split(",").map((part) => part.trim()));
-    const unique = Array.from(new Set(muscles.filter(Boolean)));
+const deriveWorkoutTitle = (exerciseNames: string[]): string => {
+    const unique = Array.from(new Set(exerciseNames.filter(Boolean)));
     if (unique.length === 0) return "Workout";
     if (unique.length === 1) return unique[0];
     return `${unique[0]} & ${unique[1]}`;
@@ -29,8 +28,8 @@ export const getWorkoutHistory = (): WorkoutSummary[] => {
     }>("SELECT id, started_at, finished_at, duration_seconds FROM workouts ORDER BY started_at DESC");
 
     return workouts.map((workout) => {
-        const muscles = db.getAllSync<{ muscle: string }>(
-            "SELECT muscle FROM workout_exercises WHERE workout_id = ?",
+        const exerciseNames = db.getAllSync<{ name: string }>(
+            "SELECT name FROM workout_exercises WHERE workout_id = ?",
             [workout.id]
         );
         const totals = db.getFirstSync<{
@@ -47,7 +46,7 @@ export const getWorkoutHistory = (): WorkoutSummary[] => {
 
         return {
             id: workout.id,
-            title: deriveWorkoutTitle(muscles.map((m) => m.muscle)),
+            title: deriveWorkoutTitle(exerciseNames.map((e) => e.name)),
             startedAt: workout.started_at,
             finishedAt: workout.finished_at,
             durationMinutes: Math.round(workout.duration_seconds / 60),
@@ -128,7 +127,7 @@ export const getWorkoutDetail = (id: number): WorkoutDetail | null => {
 
     return {
         id: workout.id,
-        title: deriveWorkoutTitle(exercises.map((exercise) => exercise.muscle)),
+        title: deriveWorkoutTitle(exercises.map((exercise) => exercise.name)),
         startedAt: workout.started_at,
         finishedAt: workout.finished_at,
         durationMinutes: Math.round(workout.duration_seconds / 60),

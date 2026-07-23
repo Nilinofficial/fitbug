@@ -57,13 +57,13 @@ export default function WorkoutScreen() {
     const [exercises, setExercises] = useState<WorkoutExercise[]>([]);
     const [pickerOpen, setPickerOpen] = useState(true);
     const [selectedTemplateIds, setSelectedTemplateIds] = useState<string[]>([]);
-    const [startedAt] = useState(() => Date.now());
+    const [startedAt, setStartedAt] = useState<number | null>(null);
     const [elapsedSeconds, setElapsedSeconds] = useState(0);
     const [{ hour: startHour, minute: startMinute }] = useState(getDefaultStartTime);
     const [durationMinutes, setDurationMinutes] = useState(45);
 
     useEffect(() => {
-        if (isBackfill) return;
+        if (isBackfill || startedAt === null) return;
         const interval = setInterval(() => {
             setElapsedSeconds(Math.floor((Date.now() - startedAt) / 1000));
         }, 1000);
@@ -85,6 +85,8 @@ export default function WorkoutScreen() {
 
     const handleBeginWorkout = () => {
         if (selectedTemplateIds.length === 0) return;
+
+        setStartedAt(Date.now());
 
         const newExercises: WorkoutExercise[] = selectedTemplateIds
             .map((templateId): WorkoutExercise | null => {
@@ -188,6 +190,16 @@ export default function WorkoutScreen() {
         );
     };
 
+    const handleRemoveSet = (instanceId: string, setId: string) => {
+        setExercises((prev) =>
+            prev.map((exercise) =>
+                exercise.instanceId === instanceId
+                    ? { ...exercise, sets: exercise.sets.filter((set) => set.id !== setId) }
+                    : exercise
+            )
+        );
+    };
+
     const handleRemoveExercise = (instanceId: string) => {
         setExercises((prev) => {
             const next = prev.filter((exercise) => exercise.instanceId !== instanceId);
@@ -213,7 +225,7 @@ export default function WorkoutScreen() {
             const backfillFinishedAt = backfillStartedAt + durationMinutes * 60000;
             saveWorkout({ startedAt: backfillStartedAt, finishedAt: backfillFinishedAt, exercises });
         } else {
-            saveWorkout({ startedAt, finishedAt: Date.now(), exercises });
+            saveWorkout({ startedAt: startedAt ?? Date.now(), finishedAt: Date.now(), exercises });
         }
         router.back();
     };
@@ -413,6 +425,7 @@ export default function WorkoutScreen() {
                                 onSetValue={(setId, field, value) =>
                                     handleSetValue(exercise.instanceId, setId, field, value)
                                 }
+                                onRemoveSet={(setId) => handleRemoveSet(exercise.instanceId, setId)}
                                 onRemove={() => handleRemoveExercise(exercise.instanceId)}
                             />
                         ))}

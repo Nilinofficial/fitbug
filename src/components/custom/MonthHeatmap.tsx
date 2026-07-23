@@ -76,16 +76,20 @@ const MonthHeatmap = ({ year, month, onDayPress }: MonthHeatmapProps) => {
                                 return <View key={dayIndex} style={{ flex: 1, aspectRatio: 1 }} />;
                             }
                             const dateKey = `${year}-${pad(month + 1)}-${pad(day)}`;
-                            const count = countByDay.get(dateKey) ?? 0;
                             const isFuture = dateKey > todayKey;
-                            const isTappable = Boolean(onDayPress) && count === 0 && !isFuture;
+
+                            if (isFuture) {
+                                return <View key={dayIndex} style={{ flex: 1, aspectRatio: 1 }} />;
+                            }
+
+                            const count = countByDay.get(dateKey) ?? 0;
+                            const isTappable = Boolean(onDayPress) && count === 0;
 
                             const cellStyle = {
                                 flex: 1,
                                 aspectRatio: 1,
                                 borderRadius: 4,
                                 backgroundColor: getColor(count, colors),
-                                opacity: isFuture ? 0.4 : 1,
                             } as const;
 
                             if (isTappable) {

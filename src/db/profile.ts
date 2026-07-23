@@ -1,6 +1,7 @@
 import { db } from "@/db/client";
 
 export type Gender = "male" | "female";
+export type Goal = "fat_loss" | "muscle_gain" | "recomp" | "maintain";
 
 export type Profile = {
     id: number;
@@ -12,7 +13,8 @@ export type Profile = {
     reminders_enabled: number;
     theme: string;
     gender: Gender;
-    profile_picture: string | null;
+    target_weight_kg: number | null;
+    goal: Goal | null;
     created_at: string;
 };
 
@@ -29,11 +31,12 @@ export const saveProfile = (input: {
     remindersEnabled: boolean;
     theme: string;
     gender: Gender;
-    profilePicture?: string | null;
+    targetWeightKg?: number | null;
+    goal?: Goal | null;
 }) => {
     db.runSync(
-        `INSERT INTO profile (id, name, age, weight_kg, height_cm, reminder_time, reminders_enabled, theme, gender, profile_picture, created_at)
-         VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO profile (id, name, age, weight_kg, height_cm, reminder_time, reminders_enabled, theme, gender, target_weight_kg, goal, created_at)
+         VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
            name=excluded.name,
            age=excluded.age,
@@ -43,7 +46,8 @@ export const saveProfile = (input: {
            reminders_enabled=excluded.reminders_enabled,
            theme=excluded.theme,
            gender=excluded.gender,
-           profile_picture=excluded.profile_picture`,
+           target_weight_kg=excluded.target_weight_kg,
+           goal=excluded.goal`,
         [
             input.name,
             input.age,
@@ -53,7 +57,8 @@ export const saveProfile = (input: {
             input.remindersEnabled ? 1 : 0,
             input.theme,
             input.gender,
-            input.profilePicture ?? null,
+            input.targetWeightKg ?? null,
+            input.goal ?? null,
             new Date().toISOString(),
         ]
     );
@@ -61,4 +66,8 @@ export const saveProfile = (input: {
 
 export const setProfileTheme = (theme: string) => {
     db.runSync("UPDATE profile SET theme = ? WHERE id = 1", [theme]);
+};
+
+export const setGoal = (targetWeightKg: number, goal: Goal) => {
+    db.runSync("UPDATE profile SET target_weight_kg = ?, goal = ? WHERE id = 1", [targetWeightKg, goal]);
 };

@@ -22,7 +22,8 @@ db.execSync(`
     reminders_enabled INTEGER NOT NULL DEFAULT 1,
     theme TEXT NOT NULL DEFAULT 'system',
     gender TEXT NOT NULL DEFAULT 'male',
-    profile_picture TEXT,
+    target_weight_kg REAL,
+    goal TEXT,
     created_at TEXT NOT NULL
   );
   CREATE TABLE IF NOT EXISTS workouts (
@@ -70,6 +71,9 @@ if (!profileColumnsAfterCreate.some((column) => column.name === "theme")) {
 if (!profileColumnsAfterCreate.some((column) => column.name === "gender")) {
     db.execSync("ALTER TABLE profile ADD COLUMN gender TEXT NOT NULL DEFAULT 'male';");
 }
-if (!profileColumnsAfterCreate.some((column) => column.name === "profile_picture")) {
-    db.execSync("ALTER TABLE profile ADD COLUMN profile_picture TEXT;");
+if (!profileColumnsAfterCreate.some((column) => column.name === "target_weight_kg")) {
+    db.execSync("ALTER TABLE profile ADD COLUMN target_weight_kg REAL;");
+}
+if (!profileColumnsAfterCreate.some((column) => column.name === "goal")) {
+    db.execSync("ALTER TABLE profile ADD COLUMN goal TEXT;");
 }

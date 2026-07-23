@@ -1,5 +1,6 @@
 
 import BottomNav from "@/components/custom/BottomNav";
+import GoalCard from "@/components/custom/GoalCard";
 import Header from "@/components/custom/Header";
 import PersonalRecords from "@/components/custom/PersonalRecords";
 import RecentActivities from "@/components/custom/RecentActivities";
@@ -36,6 +37,8 @@ export default function HomeScreen() {
           <Header />
           <Streak name={profile.name} daysThisMonth={daysThisMonth} />
           <WorkoutCard />
+          <View style={{ height: 24 }} />
+          <GoalCard />
           <View style={{ height: 24 }} />
           <PersonalRecords />
           <View style={{ height: 24 }} />

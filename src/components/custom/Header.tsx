@@ -1,17 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useState } from "react";
+import { Image } from "expo-image";
 import { Pressable, Text, View } from "react-native";
 
-import Avatar from "@/components/custom/Avatar";
-import { getProfile } from "@/db/profile";
-import { useFocusRefresh } from "@/hooks/use-focus-refresh";
+import logo from "@/assets/images/logo.png";
 import { useAppTheme } from "@/theme/ThemeProvider";
 
 const Header = () => {
     const { scheme, colors, setPreference } = useAppTheme();
-    const [profile, setProfile] = useState(() => getProfile());
-
-    useFocusRefresh(() => setProfile(getProfile()));
 
     return (
         <View
@@ -23,7 +18,11 @@ const Header = () => {
 
             }}
         >
-            <Avatar uri={profile?.profile_picture} gender={profile?.gender} size={36} />
+            <Image
+                source={logo}
+                contentFit="contain"
+                style={{ width: 36, height: 36 }}
+            />
 
             <Text
                 selectable

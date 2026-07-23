@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter, usePathname } from "expo-router";
 import type { ComponentProps } from "react";
 import { Pressable, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Fonts } from "@/constants/fonts";
 import { Spacing } from "@/constants/spacing";
@@ -52,6 +53,7 @@ const BottomNav = () => {
     const router = useRouter();
     const pathname = usePathname();
     const { colors } = useAppTheme();
+    const insets = useSafeAreaInsets();
 
     return (
         <View
@@ -59,7 +61,7 @@ const BottomNav = () => {
                 position: "absolute",
                 left: 20,
                 right: 20,
-                bottom: Spacing.lg,
+                bottom: Spacing.lg + insets.bottom,
                 minHeight: 64,
                 borderRadius: 32,
                 backgroundColor: colors.navBackground,
