@@ -1,10 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
-import { Alert, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { estimateWorkoutCalories } from "@/algorithms/calorieAlgorithm";
 import {
     ACTIVITY_LEVEL_LABELS,
     calculateBMR,
@@ -50,17 +49,7 @@ export default function GoalScreen() {
         if (!profile) return 0;
         const history = getWorkoutHistory().slice(0, 10);
         if (history.length === 0) return 0;
-        const total = history.reduce(
-            (sum, workout) =>
-                sum +
-                estimateWorkoutCalories({
-                    durationMinutes: workout.durationMinutes,
-                    totalVolumeKg: workout.totalVolumeKg,
-                    totalReps: workout.totalReps,
-                    bodyWeightKg: profile.weight_kg,
-                }),
-            0
-        );
+        const total = history.reduce((sum, workout) => sum + workout.estimatedCalories, 0);
         return Math.round(total / history.length);
     }, [profile]);
 

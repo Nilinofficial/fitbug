@@ -9,9 +9,20 @@ export type ExerciseTemplate = {
     icon: string;
     iconBg: string;
     iconColor: string;
+    // Barbell (and Smith-machine) lifts carry weight on a bar most people only
+    // think of as "the plates" — the bar itself adds real weight that's easy to
+    // forget when logging a set. hasBarWeight marks exercises where that applies;
+    // barWeightKg is a reasonable default (a standard Olympic bar is ~20kg) that
+    // gets added to whatever's logged when computing volume/calories/1RM.
+    hasBarWeight: boolean;
+    barWeightKg: number;
 };
 
-export const EXERCISE_LIBRARY: ExerciseTemplate[] = [
+const DEFAULT_BAR_WEIGHT_KG = 20;
+
+type RawExerciseTemplate = Omit<ExerciseTemplate, "hasBarWeight" | "barWeightKg">;
+
+const RAW_EXERCISES: RawExerciseTemplate[] = [
     {
         id: "bench-press",
         name: "Bench Press",
@@ -112,4 +123,280 @@ export const EXERCISE_LIBRARY: ExerciseTemplate[] = [
         iconBg: "#FFF1E6",
         iconColor: "#e2703a",
     },
+    // Squats
+    {
+        id: "back-squat",
+        name: "Barbell Back Squat",
+        equipment: "Barbell",
+        muscle: "Quadriceps, Glutes",
+        iconSet: "material",
+        icon: "weight-lifter",
+        iconBg: "#EAF1FE",
+        iconColor: "#1263df",
+    },
+    {
+        id: "front-squat",
+        name: "Front Squat",
+        equipment: "Barbell",
+        muscle: "Quadriceps, Core",
+        iconSet: "material",
+        icon: "arm-flex-outline",
+        iconBg: "#EAF1FE",
+        iconColor: "#1263df",
+    },
+    {
+        id: "goblet-squat",
+        name: "Goblet Squat",
+        equipment: "Dumbbell",
+        muscle: "Quadriceps, Glutes",
+        iconSet: "material",
+        icon: "dumbbell",
+        iconBg: "#EAF1FE",
+        iconColor: "#1263df",
+    },
+    {
+        id: "hack-squat",
+        name: "Hack Squat",
+        equipment: "Machine",
+        muscle: "Quadriceps, Glutes",
+        iconSet: "material",
+        icon: "run",
+        iconBg: "#EAF1FE",
+        iconColor: "#1263df",
+    },
+    {
+        id: "smith-machine-squat",
+        name: "Smith Machine Squat",
+        equipment: "Machine",
+        muscle: "Quadriceps, Glutes",
+        iconSet: "material",
+        icon: "walk",
+        iconBg: "#EAF1FE",
+        iconColor: "#1263df",
+    },
+    // Back / rows / pull
+    {
+        id: "barbell-bent-over-row",
+        name: "Barbell Bent-Over Row",
+        equipment: "Barbell",
+        muscle: "Back, Biceps",
+        iconSet: "material",
+        icon: "weight-lifter",
+        iconBg: "#EAF1FE",
+        iconColor: "#1263df",
+    },
+    {
+        id: "machine-row",
+        name: "Seated Machine Row",
+        equipment: "Machine",
+        muscle: "Back",
+        iconSet: "material",
+        icon: "arm-flex",
+        iconBg: "#EAF1FE",
+        iconColor: "#1263df",
+    },
+    {
+        id: "smith-machine-row",
+        name: "Smith Machine Row",
+        equipment: "Machine",
+        muscle: "Back",
+        iconSet: "material",
+        icon: "arm-flex-outline",
+        iconBg: "#EAF1FE",
+        iconColor: "#1263df",
+    },
+    {
+        id: "seated-cable-row",
+        name: "Seated Cable Row",
+        equipment: "Cable",
+        muscle: "Back",
+        iconSet: "material",
+        icon: "arm-flex",
+        iconBg: "#EAF1FE",
+        iconColor: "#1263df",
+    },
+    {
+        id: "assisted-pull-up",
+        name: "Assisted Pull-Up",
+        equipment: "Machine",
+        muscle: "Back, Biceps",
+        iconSet: "material",
+        icon: "human-handsup",
+        iconBg: "#EAF1FE",
+        iconColor: "#1263df",
+    },
+    {
+        id: "pull-up",
+        name: "Pull-Up",
+        equipment: "Bodyweight",
+        muscle: "Back, Biceps",
+        iconSet: "material",
+        icon: "human-handsup",
+        iconBg: "#EAF1FE",
+        iconColor: "#1263df",
+    },
+    // Shoulders
+    {
+        id: "face-pull",
+        name: "Face Pull",
+        equipment: "Cable",
+        muscle: "Shoulders, Upper Back",
+        iconSet: "material",
+        icon: "weight",
+        iconBg: "#EAF1FE",
+        iconColor: "#1263df",
+    },
+    {
+        id: "reverse-pec-deck-fly",
+        name: "Reverse Pec Deck Fly",
+        equipment: "Machine",
+        muscle: "Shoulders",
+        iconSet: "material",
+        icon: "arm-flex-outline",
+        iconBg: "#EAF1FE",
+        iconColor: "#1263df",
+    },
+    {
+        id: "overhead-press",
+        name: "Barbell Overhead Press",
+        equipment: "Barbell",
+        muscle: "Shoulders, Triceps",
+        iconSet: "material",
+        icon: "weight-lifter",
+        iconBg: "#FFF1E6",
+        iconColor: "#e2703a",
+    },
+    {
+        id: "dumbbell-shoulder-press",
+        name: "Dumbbell Shoulder Press",
+        equipment: "Dumbbell",
+        muscle: "Shoulders, Triceps",
+        iconSet: "material",
+        icon: "dumbbell",
+        iconBg: "#FFF1E6",
+        iconColor: "#e2703a",
+    },
+    {
+        id: "lateral-raise",
+        name: "Dumbbell Lateral Raise",
+        equipment: "Dumbbell",
+        muscle: "Shoulders",
+        iconSet: "material",
+        icon: "dumbbell",
+        iconBg: "#FFF1E6",
+        iconColor: "#e2703a",
+    },
+    // Chest
+    {
+        id: "dumbbell-chest-press",
+        name: "Dumbbell Chest Press",
+        equipment: "Dumbbell",
+        muscle: "Chest, Triceps",
+        iconSet: "material",
+        icon: "dumbbell",
+        iconBg: "#FFF1E6",
+        iconColor: "#e2703a",
+    },
+    {
+        id: "cable-chest-fly",
+        name: "Cable Chest Fly",
+        equipment: "Cable",
+        muscle: "Chest",
+        iconSet: "material",
+        icon: "arm-flex-outline",
+        iconBg: "#FFF1E6",
+        iconColor: "#e2703a",
+    },
+    // Arms
+    {
+        id: "barbell-bicep-curl",
+        name: "Barbell Bicep Curl",
+        equipment: "Barbell",
+        muscle: "Biceps",
+        iconSet: "material",
+        icon: "arm-flex",
+        iconBg: "#EAF1FE",
+        iconColor: "#1263df",
+    },
+    {
+        id: "dumbbell-bicep-curl",
+        name: "Dumbbell Bicep Curl",
+        equipment: "Dumbbell",
+        muscle: "Biceps",
+        iconSet: "material",
+        icon: "dumbbell",
+        iconBg: "#EAF1FE",
+        iconColor: "#1263df",
+    },
+    {
+        id: "hammer-curl",
+        name: "Hammer Curl",
+        equipment: "Dumbbell",
+        muscle: "Biceps, Forearms",
+        iconSet: "material",
+        icon: "dumbbell",
+        iconBg: "#EAF1FE",
+        iconColor: "#1263df",
+    },
+    {
+        id: "tricep-pushdown",
+        name: "Cable Tricep Pushdown",
+        equipment: "Cable",
+        muscle: "Triceps",
+        iconSet: "material",
+        icon: "weight",
+        iconBg: "#FFF1E6",
+        iconColor: "#e2703a",
+    },
+    {
+        id: "skull-crusher",
+        name: "Skull Crusher",
+        equipment: "Barbell",
+        muscle: "Triceps",
+        iconSet: "material",
+        icon: "weight",
+        iconBg: "#FFF1E6",
+        iconColor: "#e2703a",
+    },
+    {
+        id: "tricep-dips",
+        name: "Tricep Dips",
+        equipment: "Bodyweight",
+        muscle: "Triceps, Chest",
+        iconSet: "material",
+        icon: "human-handsup",
+        iconBg: "#FFF1E6",
+        iconColor: "#e2703a",
+    },
+    // Posterior chain
+    {
+        id: "romanian-deadlift",
+        name: "Romanian Deadlift",
+        equipment: "Barbell",
+        muscle: "Hamstrings, Glutes",
+        iconSet: "material",
+        icon: "weight-lifter",
+        iconBg: "#EAF1FE",
+        iconColor: "#1263df",
+    },
+    {
+        id: "hip-thrust",
+        name: "Barbell Hip Thrust",
+        equipment: "Barbell",
+        muscle: "Glutes",
+        iconSet: "material",
+        icon: "weight-lifter",
+        iconBg: "#EAF1FE",
+        iconColor: "#1263df",
+    },
 ];
+
+export const EXERCISE_LIBRARY: ExerciseTemplate[] = RAW_EXERCISES.map((exercise) => {
+    const hasBarWeight =
+        exercise.equipment === "Barbell" || exercise.name.toLowerCase().includes("smith machine");
+    return {
+        ...exercise,
+        hasBarWeight,
+        barWeightKg: hasBarWeight ? DEFAULT_BAR_WEIGHT_KG : 0,
+    };
+});

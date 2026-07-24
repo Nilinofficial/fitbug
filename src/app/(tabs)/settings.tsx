@@ -1,21 +1,21 @@
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import * as DocumentPicker from "expo-document-picker";
 import { File, Paths } from "expo-file-system";
 import { useRouter } from "expo-router";
 import * as Sharing from "expo-sharing";
 import type { ComponentProps, ReactNode } from "react";
 import { useState } from "react";
-import { Alert, Linking, Modal, Pressable, Switch, Text, TextInput, View } from "react-native";
+import { Linking, Modal, Pressable, Switch, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import appJson from "../../../app.json";
 
 import ConfirmDialog from "@/components/custom/ConfirmDialog";
 import Header from "@/components/custom/Header";
+import InfoDialog from "@/components/custom/InfoDialog";
 import TimeStepper from "@/components/custom/TimeStepper";
 import ScreenContent from "@/components/wrappers/ScreenWrapper";
 import { Fonts } from "@/constants/fonts";
-import { BackupData, exportAllData, importAllData } from "@/db/backup";
+import { clearAllData, exportAllData } from "@/db/backup";
 import { Gender, getProfile, Profile, saveProfile } from "@/db/profile";
 import { formatReminderTime, formatReminderTimeDisplay, parseReminderTime } from "@/lib/format";
 import {
@@ -152,9 +152,10 @@ export default function SettingsScreen() {
     const [timeEditorOpen, setTimeEditorOpen] = useState(false);
     const [draftHour, setDraftHour] = useState(18);
     const [draftMinute, setDraftMinute] = useState(0);
-    const [pendingImport, setPendingImport] = useState<BackupData | null>(null);
     const [genderEditorOpen, setGenderEditorOpen] = useState(false);
     const [draftGender, setDraftGender] = useState<Gender>("male");
+    const [infoDialog, setInfoDialog] = useState<{ title: string; message: string } | null>(null);
+    const [logoutConfirmVisible, setLogoutConfirmVisible] = useState(false);
 
     const persistProfile = (updated: Profile) => {
         saveProfile({
@@ -236,10 +237,11 @@ export default function SettingsScreen() {
             const granted = await requestNotificationPermission();
             if (!granted) {
                 persistProfile({ ...updated, reminders_enabled: 0 });
-                Alert.alert(
-                    "Notifications disabled",
-                    "FitBug doesn't have notification permission, so gym reminders were turned off. Enable notifications for FitBug in your device settings, then turn Workout Reminders back on."
-                );
+                setInfoDialog({
+                    title: "Notifications disabled",
+                    message:
+                        "FitBug doesn't have notification permission, so gym reminders were turned off. Enable notifications for FitBug in your device settings, then turn Workout Reminders back on.",
+                });
                 return;
             }
             await scheduleGymReminder(reminderTime);
@@ -254,10 +256,11 @@ export default function SettingsScreen() {
         if (enabled) {
             const granted = await requestNotificationPermission();
             if (!granted) {
-                Alert.alert(
-                    "Permission needed",
-                    "FitBug needs notification permission to send gym reminders. Enable notifications for FitBug in your device settings and try again."
-                );
+                setInfoDialog({
+                    title: "Permission needed",
+                    message:
+                        "FitBug needs notification permission to send gym reminders. Enable notifications for FitBug in your device settings and try again.",
+                });
                 return;
             }
             persistProfile({ ...profile, reminders_enabled: 1 });
@@ -279,40 +282,21 @@ export default function SettingsScreen() {
             if (await Sharing.isAvailableAsync()) {
                 await Sharing.shareAsync(file.uri);
             } else {
-                Alert.alert("Export complete", `Saved to ${file.uri}`);
+                setInfoDialog({ title: "Export complete", message: `Saved to ${file.uri}` });
             }
         } catch {
-            Alert.alert("Export failed", "Something went wrong while exporting your data.");
+            setInfoDialog({
+                title: "Export failed",
+                message: "Something went wrong while exporting your data.",
+            });
         }
     };
 
-    const handleImportData = async () => {
-        const result = await DocumentPicker.getDocumentAsync({ type: "application/json" });
-        if (result.canceled || !result.assets[0]) return;
-
-        try {
-            const file = new File(result.assets[0].uri);
-            const data = JSON.parse(file.textSync()) as BackupData;
-            setPendingImport(data);
-        } catch {
-            Alert.alert("Import failed", "That file doesn't look like a valid fitbug backup.");
-        }
-    };
-
-    const confirmImportData = async () => {
-        if (!pendingImport) return;
-        const data = pendingImport;
-        setPendingImport(null);
-
-        importAllData(data);
-        const restored = getProfile();
-        setProfile(restored);
-        if (restored?.reminders_enabled) {
-            await scheduleGymReminder(restored.reminder_time);
-        } else {
-            await cancelGymReminder();
-        }
-        Alert.alert("Import complete", "Your data has been restored.");
+    const handleLogout = async () => {
+        setLogoutConfirmVisible(false);
+        await cancelGymReminder();
+        clearAllData();
+        router.replace("/onboarding");
     };
 
     return (
@@ -453,8 +437,6 @@ export default function SettingsScreen() {
                     Data
                 </Text>
                 <SectionCard colors={colors}>
-                    <SettingsRow icon="download-outline" label="Import Data" value="" onPress={handleImportData} colors={colors} />
-                    <Divider colors={colors} />
                     <SettingsRow icon="share-outline" label="Export Data" value="" onPress={handleExportData} colors={colors} />
                 </SectionCard>
 
@@ -488,6 +470,25 @@ export default function SettingsScreen() {
                         colors={colors}
                     />
                 </SectionCard>
+
+                <Pressable
+                    onPress={() => setLogoutConfirmVisible(true)}
+                    style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 8,
+                        backgroundColor: colors.surface,
+                        borderRadius: 16,
+                        paddingVertical: 14,
+                        marginBottom: 20,
+                    }}
+                >
+                    <Ionicons name="log-out-outline" size={18} color="#e2703a" />
+                    <Text style={{ color: "#e2703a", fontSize: 14, fontFamily: Fonts.bold }}>
+                        Log Out
+                    </Text>
+                </Pressable>
             </ScreenContent>
 
             <Modal visible={editingField !== null} transparent animationType="fade" onRequestClose={closeEditor}>
@@ -703,13 +704,20 @@ export default function SettingsScreen() {
                 </View>
             </Modal>
 
+            <InfoDialog
+                visible={infoDialog !== null}
+                title={infoDialog?.title ?? ""}
+                message={infoDialog?.message ?? ""}
+                onClose={() => setInfoDialog(null)}
+            />
+
             <ConfirmDialog
-                visible={pendingImport !== null}
-                title="Import data"
-                message="This replaces all current data on this device (profile, workouts, and custom workouts) with the contents of this backup. Continue?"
-                confirmLabel="Import"
-                onConfirm={confirmImportData}
-                onCancel={() => setPendingImport(null)}
+                visible={logoutConfirmVisible}
+                title="Log out"
+                message="This permanently deletes your profile, all workout history, and custom workouts from this device. This can't be undone. Consider exporting your data first if you want to keep it."
+                confirmLabel="Log Out"
+                onConfirm={handleLogout}
+                onCancel={() => setLogoutConfirmVisible(false)}
             />
         </SafeAreaView>
     );

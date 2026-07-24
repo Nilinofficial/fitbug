@@ -1,9 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useRef, useState } from "react";
-import { Pressable, Text, TextInput, View } from "react-native";
+import { Pressable, Switch, Text, TextInput, View } from "react-native";
 
 import ConfirmDialog from "@/components/custom/ConfirmDialog";
 import { Fonts } from "@/constants/fonts";
+import { formatElapsedSeconds } from "@/lib/format";
 import { useAppTheme } from "@/theme/ThemeProvider";
 import { WorkoutExercise } from "@/types/workout";
 
@@ -15,6 +16,9 @@ type ExerciseTrackerCardProps = {
     onSetValue: (setId: string, field: "weight" | "reps", value: number) => void;
     onRemoveSet: (setId: string) => void;
     onRemove: () => void;
+    onUpdateBarWeight: (hasBarWeight: boolean, barWeightKg: number) => void;
+    showTimer: boolean;
+    onTick: (field: "workSeconds" | "restSeconds") => void;
 };
 
 type NumberFieldProps = {
@@ -74,6 +78,9 @@ const ExerciseTrackerCard = ({
     onSetValue,
     onRemoveSet,
     onRemove,
+    onUpdateBarWeight,
+    showTimer,
+    onTick,
 }: ExerciseTrackerCardProps) => {
     const { colors } = useAppTheme();
     const [confirmVisible, setConfirmVisible] = useState(false);
@@ -81,6 +88,19 @@ const ExerciseTrackerCard = ({
         () => exercise.sets[exercise.sets.length - 1]?.id ?? null
     );
     const prevSetCount = useRef(exercise.sets.length);
+    // Not started until the user taps Workout or Rest for this specific
+    // card — otherwise every exercise added to the session would silently
+    // start accruing "work" time the moment the workout begins, even for
+    // ones the user isn't actually doing yet.
+    const [phase, setPhase] = useState<"work" | "rest" | null>(null);
+
+    useEffect(() => {
+        if (!showTimer || phase === null) return;
+        const field = phase === "work" ? "workSeconds" : "restSeconds";
+        const intervalId = setInterval(() => onTick(field), 1000);
+        return () => clearInterval(intervalId);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [showTimer, phase]);
 
     useEffect(() => {
         const activeStillExists = exercise.sets.some((set) => set.id === activeSetId);
@@ -135,6 +155,148 @@ const ExerciseTrackerCard = ({
                 <Pressable onPress={handleRemove} hitSlop={8}>
                     <Ionicons name="trash-outline" size={20} color="#e2703a" />
                 </Pressable>
+            </View>
+
+            {showTimer ? (
+                <View style={{ flexDirection: "row", gap: 8 }}>
+                    <Pressable
+                        onPress={() => setPhase("work")}
+                        style={{
+                            flex: 1,
+                            borderRadius: 14,
+                            paddingVertical: 10,
+                            alignItems: "center",
+                            gap: 3,
+                            backgroundColor: phase === "work" ? "#1263df" : colors.surfaceMuted,
+                        }}
+                    >
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                            <Ionicons name="play" size={11} color={phase === "work" ? "#ffffff" : "#1263df"} />
+                            <Text
+                                style={{
+                                    color: phase === "work" ? "#ffffff" : colors.textSecondary,
+                                    fontSize: 11,
+                                    fontFamily: Fonts.bold,
+                                }}
+                            >
+                                Workout
+                            </Text>
+                        </View>
+                        <Text
+                            style={{
+                                color: phase === "work" ? "#ffffff" : colors.textPrimary,
+                                fontSize: 16,
+                                fontFamily: Fonts.bold,
+                            }}
+                        >
+                            {formatElapsedSeconds(exercise.workSeconds)}
+                        </Text>
+                    </Pressable>
+
+                    <Pressable
+                        onPress={() => setPhase("rest")}
+                        style={{
+                            flex: 1,
+                            borderRadius: 14,
+                            paddingVertical: 10,
+                            alignItems: "center",
+                            gap: 3,
+                            backgroundColor: phase === "rest" ? "#6b7280" : colors.surfaceMuted,
+                        }}
+                    >
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                            <Ionicons name="pause" size={11} color={phase === "rest" ? "#ffffff" : "#6b7280"} />
+                            <Text
+                                style={{
+                                    color: phase === "rest" ? "#ffffff" : colors.textSecondary,
+                                    fontSize: 11,
+                                    fontFamily: Fonts.bold,
+                                }}
+                            >
+                                Rest
+                            </Text>
+                        </View>
+                        <Text
+                            style={{
+                                color: phase === "rest" ? "#ffffff" : colors.textPrimary,
+                                fontSize: 16,
+                                fontFamily: Fonts.bold,
+                            }}
+                        >
+                            {formatElapsedSeconds(exercise.restSeconds)}
+                        </Text>
+                    </Pressable>
+                </View>
+            ) : null}
+
+            <View
+                style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    backgroundColor: colors.surfaceMuted,
+                    borderRadius: 14,
+                    paddingVertical: 10,
+                    paddingHorizontal: 12,
+                }}
+            >
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1 }}>
+                    <Ionicons name="barbell-outline" size={16} color="#1263df" />
+                    <View style={{ flex: 1 }}>
+                        <Text style={{ color: colors.textPrimary, fontSize: 12, fontFamily: Fonts.bold }}>
+                            Bar Weight
+                        </Text>
+                        {exercise.hasBarWeight ? (
+                            <Text style={{ color: colors.textSecondary, fontSize: 11, fontFamily: Fonts.regular }}>
+                                +{exercise.barWeightKg}kg added to every set
+                            </Text>
+                        ) : (
+                            <Text style={{ color: colors.textSecondary, fontSize: 11, fontFamily: Fonts.regular }}>
+                                No bar weight added
+                            </Text>
+                        )}
+                    </View>
+                </View>
+
+                {exercise.hasBarWeight ? (
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                        <Pressable
+                            onPress={() =>
+                                onUpdateBarWeight(true, Math.max(0, exercise.barWeightKg - 2.5))
+                            }
+                            hitSlop={6}
+                        >
+                            <Ionicons name="remove-circle-outline" size={18} color="#1263df" />
+                        </Pressable>
+                        <Text
+                            style={{
+                                color: colors.textPrimary,
+                                fontSize: 14,
+                                fontFamily: Fonts.semiBold,
+                                minWidth: 34,
+                                textAlign: "center",
+                            }}
+                        >
+                            {exercise.barWeightKg}
+                        </Text>
+                        <Pressable
+                            onPress={() => onUpdateBarWeight(true, exercise.barWeightKg + 2.5)}
+                            hitSlop={6}
+                        >
+                            <Ionicons name="add-circle-outline" size={18} color="#1263df" />
+                        </Pressable>
+                    </View>
+                ) : null}
+
+                <Switch
+                    value={exercise.hasBarWeight}
+                    onValueChange={(value) =>
+                        onUpdateBarWeight(value, exercise.barWeightKg > 0 ? exercise.barWeightKg : 20)
+                    }
+                    trackColor={{ true: "#1263df", false: colors.border }}
+                    thumbColor="#ffffff"
+                    style={{ marginLeft: 10 }}
+                />
             </View>
 
             <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 4 }}>

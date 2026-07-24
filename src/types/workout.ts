@@ -10,5 +10,9 @@ export type WorkoutExercise = {
     name: string;
     equipment: string;
     muscle: string;
+    hasBarWeight: boolean;
+    barWeightKg: number;
+    workSeconds: number;
+    restSeconds: number;
     sets: SetEntry[];
 };

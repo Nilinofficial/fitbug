@@ -3,11 +3,12 @@ import Constants from "expo-constants";
 import { useRouter } from "expo-router";
 import type { ComponentProps } from "react";
 import { useState } from "react";
-import { Alert, Linking, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Linking, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import appJson from "../../app.json";
 
+import InfoDialog from "@/components/custom/InfoDialog";
 import { Fonts } from "@/constants/fonts";
 import { Spacing } from "@/constants/spacing";
 import { useAppTheme } from "@/theme/ThemeProvider";
@@ -37,6 +38,7 @@ export default function ContactSupportScreen() {
     const [feedbackType, setFeedbackType] = useState<FeedbackType>("bug");
     const [message, setMessage] = useState("");
     const [error, setError] = useState("");
+    const [noMailAppDialog, setNoMailAppDialog] = useState(false);
 
     const handleSubmit = async () => {
         if (!message.trim()) {
@@ -52,10 +54,7 @@ export default function ContactSupportScreen() {
 
         const canOpen = await Linking.canOpenURL(mailto);
         if (!canOpen) {
-            Alert.alert(
-                "No mail app found",
-                `Please email us directly at ${SUPPORT_EMAIL}.`
-            );
+            setNoMailAppDialog(true);
             return;
         }
 
@@ -235,6 +234,13 @@ export default function ContactSupportScreen() {
                     <Ionicons name="send" size={16} color="#ffffff" />
                 </Pressable>
             </ScrollView>
+
+            <InfoDialog
+                visible={noMailAppDialog}
+                title="No mail app found"
+                message={`Please email us directly at ${SUPPORT_EMAIL}.`}
+                onClose={() => setNoMailAppDialog(false)}
+            />
         </SafeAreaView>
     );
 }

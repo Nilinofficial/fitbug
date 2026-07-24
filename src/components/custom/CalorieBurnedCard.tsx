@@ -2,9 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
 import { Text, View } from "react-native";
 
-import { estimateWorkoutCalories } from "@/algorithms/calorieAlgorithm";
 import { Fonts } from "@/constants/fonts";
-import { getProfile } from "@/db/profile";
 import { getWorkoutsSince } from "@/db/workouts";
 import { useFocusRefresh } from "@/hooks/use-focus-refresh";
 import { useAppTheme } from "@/theme/ThemeProvider";
@@ -24,25 +22,9 @@ const startOfLocalWeek = (date: Date) => {
 };
 
 const computeCaloriesBurned = (period: CaloriePeriod): number => {
-    const profile = getProfile();
-    if (!profile) return 0;
-
     const since = period === "today" ? startOfLocalDay(new Date()) : startOfLocalWeek(new Date());
     const workouts = getWorkoutsSince(since.toISOString());
-
-    const total = workouts.reduce(
-        (sum, workout) =>
-            sum +
-            estimateWorkoutCalories({
-                durationMinutes: workout.durationMinutes,
-                totalVolumeKg: workout.totalVolumeKg,
-                totalReps: workout.totalReps,
-                bodyWeightKg: profile.weight_kg,
-            }),
-        0
-    );
-
-    return Math.round(total);
+    return Math.round(workouts.reduce((sum, workout) => sum + workout.estimatedCalories, 0));
 };
 
 type CalorieBurnedCardProps = {

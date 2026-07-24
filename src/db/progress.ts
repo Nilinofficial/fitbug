@@ -15,7 +15,7 @@ export type ExerciseSetRow = {
 
 export const getExerciseSetHistory = (name: string): ExerciseSetRow[] => {
     const rows = db.getAllSync<{ started_at: string; weight_kg: number; reps: number }>(
-        `SELECT w.started_at AS started_at, ws.weight_kg AS weight_kg, ws.reps AS reps
+        `SELECT w.started_at AS started_at, (ws.weight_kg + we.bar_weight_kg) AS weight_kg, ws.reps AS reps
          FROM workout_sets ws
          JOIN workout_exercises we ON we.id = ws.workout_exercise_id
          JOIN workouts w ON w.id = we.workout_id

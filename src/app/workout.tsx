@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -24,13 +24,6 @@ const createSet = (overrides?: Partial<SetEntry>): SetEntry => ({
     reps: 0,
     ...overrides,
 });
-
-const formatElapsed = (totalSeconds: number) => {
-    const hours = Math.floor(totalSeconds / 3600).toString().padStart(2, "0");
-    const minutes = Math.floor((totalSeconds % 3600) / 60).toString().padStart(2, "0");
-    const seconds = Math.floor(totalSeconds % 60).toString().padStart(2, "0");
-    return `${hours}:${minutes}:${seconds}`;
-};
 
 const MIN_DURATION_MINUTES = 5;
 
@@ -57,18 +50,18 @@ export default function WorkoutScreen() {
     const [exercises, setExercises] = useState<WorkoutExercise[]>([]);
     const [pickerOpen, setPickerOpen] = useState(true);
     const [selectedTemplateIds, setSelectedTemplateIds] = useState<string[]>([]);
-    const [startedAt, setStartedAt] = useState<number | null>(null);
-    const [elapsedSeconds, setElapsedSeconds] = useState(0);
     const [{ hour: startHour, minute: startMinute }] = useState(getDefaultStartTime);
     const [durationMinutes, setDurationMinutes] = useState(45);
 
-    useEffect(() => {
-        if (isBackfill || startedAt === null) return;
-        const interval = setInterval(() => {
-            setElapsedSeconds(Math.floor((Date.now() - startedAt) / 1000));
-        }, 1000);
-        return () => clearInterval(interval);
-    }, [startedAt, isBackfill]);
+    const handleTickExercise = (instanceId: string, field: "workSeconds" | "restSeconds") => {
+        setExercises((prev) =>
+            prev.map((exercise) =>
+                exercise.instanceId === instanceId
+                    ? { ...exercise, [field]: exercise[field] + 1 }
+                    : exercise
+            )
+        );
+    };
 
     const handleToggleSelect = (templateId: string) => {
         setSelectedTemplateIds((prev) =>
@@ -86,8 +79,6 @@ export default function WorkoutScreen() {
     const handleBeginWorkout = () => {
         if (selectedTemplateIds.length === 0) return;
 
-        setStartedAt(Date.now());
-
         const newExercises: WorkoutExercise[] = selectedTemplateIds
             .map((templateId): WorkoutExercise | null => {
                 const customId = parseCustomWorkoutTemplateId(templateId);
@@ -100,6 +91,10 @@ export default function WorkoutScreen() {
                         name: routine.name,
                         equipment: "Custom",
                         muscle: routine.muscleGroups.length > 0 ? routine.muscleGroups.join(", ") : "Custom Workout",
+                        hasBarWeight: routine.hasBarWeight,
+                        barWeightKg: routine.hasBarWeight ? routine.barWeightKg : 0,
+                        workSeconds: 0,
+                        restSeconds: 0,
                         sets: [createSet()],
                     };
                 }
@@ -112,6 +107,10 @@ export default function WorkoutScreen() {
                     name: template.name,
                     equipment: template.equipment,
                     muscle: template.muscle,
+                    hasBarWeight: template.hasBarWeight,
+                    barWeightKg: template.barWeightKg,
+                    workSeconds: 0,
+                    restSeconds: 0,
                     sets: [createSet()],
                 };
             })
@@ -190,6 +189,16 @@ export default function WorkoutScreen() {
         );
     };
 
+    const handleUpdateBarWeight = (instanceId: string, hasBarWeight: boolean, barWeightKg: number) => {
+        setExercises((prev) =>
+            prev.map((exercise) =>
+                exercise.instanceId === instanceId
+                    ? { ...exercise, hasBarWeight, barWeightKg: hasBarWeight ? barWeightKg : 0 }
+                    : exercise
+            )
+        );
+    };
+
     const handleRemoveSet = (instanceId: string, setId: string) => {
         setExercises((prev) =>
             prev.map((exercise) =>
@@ -221,11 +230,30 @@ export default function WorkoutScreen() {
     const handleFinishWorkout = () => {
         if (isBackfill && date) {
             const [year, month, day] = date.split("-").map(Number);
-            const backfillStartedAt = new Date(year, month - 1, day, startHour, startMinute, 0, 0).getTime();
-            const backfillFinishedAt = backfillStartedAt + durationMinutes * 60000;
-            saveWorkout({ startedAt: backfillStartedAt, finishedAt: backfillFinishedAt, exercises });
+            const finishedAt = new Date(year, month - 1, day, startHour, startMinute, 0, 0).getTime();
+
+            // No live session happened here, so there's no real work/rest split —
+            // instead, distribute the manually-entered total duration across
+            // exercises proportionally by how many sets each one has. This feeds
+            // the same "workSeconds > 0 means real timing" path saveWorkout and
+            // every calorie read already use for live-tracked workouts.
+            const totalLoggedSets = exercises.reduce(
+                (sum, exercise) => sum + exercise.sets.filter((set) => set.reps > 0).length,
+                0
+            );
+            const totalDurationSeconds = durationMinutes * 60;
+            const exercisesWithDuration = exercises.map((exercise) => {
+                const loggedSets = exercise.sets.filter((set) => set.reps > 0).length;
+                const workSeconds =
+                    totalLoggedSets > 0
+                        ? Math.round(totalDurationSeconds * (loggedSets / totalLoggedSets))
+                        : 0;
+                return { ...exercise, workSeconds, restSeconds: 0 };
+            });
+
+            saveWorkout({ finishedAt, exercises: exercisesWithDuration });
         } else {
-            saveWorkout({ startedAt: startedAt ?? Date.now(), finishedAt: Date.now(), exercises });
+            saveWorkout({ finishedAt: Date.now(), exercises });
         }
         router.back();
     };
@@ -286,13 +314,11 @@ export default function WorkoutScreen() {
                             New Workout
                         </Text>
                         <Text style={{ color: "#1263df", fontSize: 12, fontFamily: Fonts.medium }}>
-                            {isBackfill && date ? formatBackfillDate(date) : formatElapsed(elapsedSeconds)}
+                            {isBackfill && date ? formatBackfillDate(date) : "Today"}
                         </Text>
                     </View>
 
-                    <Pressable hitSlop={8}>
-                        <Ionicons name="ellipsis-horizontal" size={22} color={colors.textPrimary} />
-                    </Pressable>
+                    <View style={{ width: 36 }} />
                 </View>
             )}
 
@@ -352,7 +378,7 @@ export default function WorkoutScreen() {
                         }}
                         showsVerticalScrollIndicator={false}
                     >
-        {isBackfill ? (
+                        {isBackfill ? (
                             <View
                                 style={{
                                     backgroundColor: colors.surface,
@@ -427,6 +453,11 @@ export default function WorkoutScreen() {
                                 }
                                 onRemoveSet={(setId) => handleRemoveSet(exercise.instanceId, setId)}
                                 onRemove={() => handleRemoveExercise(exercise.instanceId)}
+                                onUpdateBarWeight={(hasBarWeight, barWeightKg) =>
+                                    handleUpdateBarWeight(exercise.instanceId, hasBarWeight, barWeightKg)
+                                }
+                                showTimer={!isBackfill}
+                                onTick={(field) => handleTickExercise(exercise.instanceId, field)}
                             />
                         ))}
 
@@ -467,7 +498,7 @@ export default function WorkoutScreen() {
                             }}
                         >
                             <Text style={{ color: "#ffffff", fontSize: 16, fontFamily: Fonts.bold }}>
-                                {isBackfill ? "Save Workout" : "Finish Workout"}
+                                Save Workout
                             </Text>
                         </Pressable>
                     </View>

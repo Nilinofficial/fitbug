@@ -1,15 +1,15 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useState } from "react";
 import { ScrollView, Text, View, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { estimateWorkoutCalories } from "@/algorithms/calorieAlgorithm";
 import BottomNav from "@/components/custom/BottomNav";
 import ExerciseIcon from "@/components/custom/ExerciseIcon";
+import InfoDialog from "@/components/custom/InfoDialog";
 import { EXERCISE_LIBRARY } from "@/constants/exercises";
 import { Fonts } from "@/constants/fonts";
 import { Spacing } from "@/constants/spacing";
-import { getProfile } from "@/db/profile";
 import { getWorkoutDetail } from "@/db/workouts";
 import { formatDate } from "@/lib/format";
 import { useAppTheme } from "@/theme/ThemeProvider";
@@ -30,7 +30,7 @@ export default function WorkoutDetailsScreen() {
     const { colors } = useAppTheme();
     const { id } = useLocalSearchParams<{ id: string }>();
     const workout = getWorkoutDetail(Number(id));
-    const profile = getProfile();
+    const [volumeInfoVisible, setVolumeInfoVisible] = useState(false);
 
     if (!workout) {
         return (
@@ -137,14 +137,7 @@ export default function WorkoutDetailsScreen() {
                             <Ionicons name="flame" size={18} color="#e2703a" />
                         </View>
                         <Text style={{ color: colors.textPrimary, fontSize: 22, fontFamily: Fonts.bold }}>
-                            {profile
-                                ? estimateWorkoutCalories({
-                                      durationMinutes: workout.durationMinutes,
-                                      totalVolumeKg: workout.totalVolumeKg,
-                                      totalReps: workout.totalReps,
-                                      bodyWeightKg: profile.weight_kg,
-                                  })
-                                : 0}
+                            {workout.estimatedCalories}
                         </Text>
                         <Text style={{ color: colors.textSecondary, fontSize: 10, fontFamily: Fonts.medium }}>
                             CAL
@@ -213,13 +206,30 @@ export default function WorkoutDetailsScreen() {
                                 >
                                     <ExerciseIcon iconSet={iconSet} icon={icon} size={20} color={iconColor} />
                                 </View>
-                                <View style={{ gap: 2 }}>
+                                <View style={{ gap: 2, flex: 1 }}>
                                     <Text style={{ color: colors.textPrimary, fontSize: 16, fontFamily: Fonts.bold }}>
                                         {exercise.name}
                                     </Text>
-                                    <Text style={{ color: colors.textSecondary, fontSize: 12, fontFamily: Fonts.regular }}>
-                                        {exercise.sets.length} sets · {Math.round(exercise.totalVolumeKg)} kg
-                                    </Text>
+                                    <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+                                        <Text style={{ color: colors.textSecondary, fontSize: 12, fontFamily: Fonts.regular }}>
+                                            {exercise.sets.length} sets · {Math.round(exercise.totalVolumeKg)} kg
+                                        </Text>
+                                        <Pressable onPress={() => setVolumeInfoVisible(true)} hitSlop={8}>
+                                            <Ionicons
+                                                name="information-circle-outline"
+                                                size={15}
+                                                color={colors.textSecondary}
+                                            />
+                                        </Pressable>
+                                    </View>
+                                    {exercise.barWeightKg > 0 ? (
+                                        <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                                            <Ionicons name="barbell-outline" size={12} color="#1263df" />
+                                            <Text style={{ color: "#1263df", fontSize: 11, fontFamily: Fonts.medium }}>
+                                                Bar: {exercise.barWeightKg}kg
+                                            </Text>
+                                        </View>
+                                    ) : null}
                                 </View>
                             </View>
 
@@ -266,6 +276,13 @@ export default function WorkoutDetailsScreen() {
                     );
                 })}
             </ScrollView>
+
+            <InfoDialog
+                visible={volumeInfoVisible}
+                title="What is Volume?"
+                message="Volume is the total weight you moved for this exercise — each set's weight (plus bar weight, if this exercise uses one) multiplied by its reps, added up across every set. It's a standard way to measure training work, and it's what your calorie estimate for this exercise is based on."
+                onClose={() => setVolumeInfoVisible(false)}
+            />
 
             <BottomNav />
         </SafeAreaView>

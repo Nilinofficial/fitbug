@@ -79,6 +79,8 @@ const GoalCard = () => {
     const dailyTarget = calculateDailyCalorieTarget(tdee, profile.goal);
 
     const weightGap = profile.target_weight_kg - profile.weight_kg;
+  
+    
     const isAtTarget = Math.abs(weightGap) < 0.1;
 
     return (

@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { useState } from "react";
 import { ScrollView, Text, View, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -7,12 +8,15 @@ import MonthHeatmap from "@/components/custom/MonthHeatmap";
 import { Fonts } from "@/constants/fonts";
 import { Spacing } from "@/constants/spacing";
 import { getActivityMonthRange } from "@/db/activity";
+import { useFocusRefresh } from "@/hooks/use-focus-refresh";
 import { useAppTheme } from "@/theme/ThemeProvider";
 
 export default function ActivityHistoryScreen() {
     const router = useRouter();
     const { colors } = useAppTheme();
-    const months = getActivityMonthRange();
+    const [months, setMonths] = useState(() => getActivityMonthRange());
+
+    useFocusRefresh(() => setMonths(getActivityMonthRange()));
 
     return (
         <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>

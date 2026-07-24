@@ -1,14 +1,16 @@
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { useState } from "react";
-import { Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 
 import CalorieBurnedCard from "@/components/custom/CalorieBurnedCard";
 import ExerciseIcon from "@/components/custom/ExerciseIcon";
 import SectionHeader from "@/components/custom/SectionHeader";
 import { EXERCISE_LIBRARY } from "@/constants/exercises";
 import { Fonts } from "@/constants/fonts";
-import { getTopPersonalRecords, PersonalRecordRow } from "@/db/workouts";
+import { ExerciseImprovement, getExerciseImprovements } from "@/db/workouts";
 import { useFocusRefresh } from "@/hooks/use-focus-refresh";
+import { formatDate } from "@/lib/format";
 import { resolveTintBg } from "@/theme/tokens";
 import { useAppTheme } from "@/theme/ThemeProvider";
 
@@ -20,16 +22,17 @@ const FALLBACK_ICON_COLOR = "#1263df";
 const isSameDay = (isoDate: string) => new Date(isoDate).toDateString() === new Date().toDateString();
 
 const PersonalRecords = () => {
+    const router = useRouter();
     const { colors } = useAppTheme();
-    const [records, setRecords] = useState<PersonalRecordRow[]>(() => getTopPersonalRecords(1));
+    const [improvements, setImprovements] = useState<ExerciseImprovement[]>(() => getExerciseImprovements(2));
 
-    useFocusRefresh(() => setRecords(getTopPersonalRecords(1)));
+    useFocusRefresh(() => setImprovements(getExerciseImprovements(2)));
 
     return (
         <View>
-            <SectionHeader title="Personal Records" rightLabel="" />
+            <SectionHeader title="Recent Improvements" rightLabel="" />
 
-            {records.length === 0 ? (
+            {improvements.length === 0 ? (
                 <View style={{ flexDirection: "row", gap: 12 }}>
                     <View
                         style={{
@@ -44,24 +47,26 @@ const PersonalRecords = () => {
                             selectable
                             style={{ color: colors.textSecondary, fontSize: 13, fontFamily: Fonts.regular }}
                         >
-                            Complete a workout to see your personal records here.
+                            Beat your previous weight or reps on an exercise to see it here.
                         </Text>
                     </View>
                     <CalorieBurnedCard period="today" />
                 </View>
             ) : (
                 <View style={{ flexDirection: "row", gap: 12 }}>
-                    {records.map((record) => {
-                        const template = EXERCISE_LIBRARY.find((item) => item.name === record.name);
+                    {improvements.map((improvement) => {
+                        const template = EXERCISE_LIBRARY.find((item) => item.name === improvement.name);
                         const iconSet = template?.iconSet ?? FALLBACK_ICON_SET;
                         const icon = template?.icon ?? FALLBACK_ICON;
                         const iconBg = resolveTintBg(template?.iconBg ?? FALLBACK_ICON_BG, colors);
                         const iconColor = template?.iconColor ?? FALLBACK_ICON_COLOR;
-                        const isNewToday = isSameDay(record.finished_at);
+                        const isNewToday = isSameDay(improvement.finishedAt);
+                        const calorieGain = improvement.estimatedCalories - improvement.previousCalories;
 
                         return (
-                            <View
-                                key={record.name}
+                            <Pressable
+                                key={improvement.workoutExerciseId}
+                                onPress={() => router.push("/personal-records")}
                                 style={{
                                     flex: 1,
                                     backgroundColor: colors.surface,
@@ -96,13 +101,15 @@ const PersonalRecords = () => {
                                     </View>
                                     <Text
                                         selectable
+                                        numberOfLines={1}
                                         style={{
+                                            flex: 1,
                                             color: colors.textSecondary,
                                             fontSize: 12,
                                             fontFamily: Fonts.medium,
                                         }}
                                     >
-                                        {record.name}
+                                        {improvement.name}
                                     </Text>
                                 </View>
 
@@ -115,7 +122,7 @@ const PersonalRecords = () => {
                                             fontFamily: Fonts.bold,
                                         }}
                                     >
-                                        {record.weight_kg}
+                                        {improvement.estimatedCalories}
                                     </Text>
                                     <Text
                                         selectable
@@ -126,12 +133,12 @@ const PersonalRecords = () => {
                                             marginBottom: 3,
                                         }}
                                     >
-                                        kg
+                                        cal
                                     </Text>
                                 </View>
 
                                 <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                                    <Ionicons name="repeat-outline" size={12} color="#1263df" />
+                                    <Ionicons name="trending-up" size={12} color="#1263df" />
                                     <Text
                                         selectable
                                         style={{
@@ -140,7 +147,7 @@ const PersonalRecords = () => {
                                             fontFamily: Fonts.medium,
                                         }}
                                     >
-                                        {record.reps} reps
+                                        +{calorieGain} vs last time
                                     </Text>
                                 </View>
 
@@ -162,14 +169,21 @@ const PersonalRecords = () => {
                                             selectable
                                             style={{ color: "#a45337", fontSize: 10, fontFamily: Fonts.bold }}
                                         >
-                                            New PR today
+                                            Today
                                         </Text>
                                     </View>
-                                ) : null}
-                            </View>
+                                ) : (
+                                    <Text
+                                        selectable
+                                        style={{ color: colors.textSecondary, fontSize: 10, fontFamily: Fonts.regular }}
+                                    >
+                                        {formatDate(improvement.finishedAt)}
+                                    </Text>
+                                )}
+                            </Pressable>
                         );
                     })}
-                    <CalorieBurnedCard period="today" />
+                    {improvements.length === 1 ? <CalorieBurnedCard period="today" /> : null}
                 </View>
             )}
         </View>

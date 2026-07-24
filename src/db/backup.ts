@@ -86,13 +86,21 @@ export const exportAllData = (): BackupData => {
     };
 };
 
+const deleteAllRows = (): void => {
+    db.execSync("DELETE FROM workout_sets;");
+    db.execSync("DELETE FROM workout_exercises;");
+    db.execSync("DELETE FROM workouts;");
+    db.execSync("DELETE FROM custom_workouts;");
+    db.execSync("DELETE FROM profile;");
+};
+
+export const clearAllData = (): void => {
+    db.withTransactionSync(deleteAllRows);
+};
+
 export const importAllData = (data: BackupData): void => {
     db.withTransactionSync(() => {
-        db.execSync("DELETE FROM workout_sets;");
-        db.execSync("DELETE FROM workout_exercises;");
-        db.execSync("DELETE FROM workouts;");
-        db.execSync("DELETE FROM custom_workouts;");
-        db.execSync("DELETE FROM profile;");
+        deleteAllRows();
 
         if (data.profile) {
             db.runSync(

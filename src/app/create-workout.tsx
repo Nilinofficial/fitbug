@@ -2,9 +2,10 @@ import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import type { ComponentProps } from "react";
 import { useState } from "react";
-import { Alert, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Pressable, ScrollView, Switch, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import Toast from "@/components/custom/Toast";
 import { Fonts } from "@/constants/fonts";
 import { Spacing } from "@/constants/spacing";
 import { saveCustomWorkout } from "@/db/customWorkouts";
@@ -32,6 +33,9 @@ export default function CreateWorkoutScreen() {
     const [name, setName] = useState("");
     const [selectedMuscles, setSelectedMuscles] = useState<string[]>([]);
     const [selectedIcon, setSelectedIcon] = useState<MCIconName>(WORKOUT_ICON_OPTIONS[0]);
+    const [toastMessage, setToastMessage] = useState<string | null>(null);
+    const [hasBarWeight, setHasBarWeight] = useState(false);
+    const [barWeight, setBarWeight] = useState("20");
 
     const toggleMuscle = (key: string) => {
         setSelectedMuscles((prev) =>
@@ -41,11 +45,23 @@ export default function CreateWorkoutScreen() {
 
     const handleSave = () => {
         if (!name.trim()) {
-            Alert.alert("Name required", "Please enter a workout name.");
+            setToastMessage("Please enter a workout name.");
             return;
         }
 
-        saveCustomWorkout({ name: name.trim(), icon: selectedIcon, muscleGroups: selectedMuscles });
+        const barWeightValue = Number(barWeight);
+        if (hasBarWeight && (!Number.isFinite(barWeightValue) || barWeightValue <= 0)) {
+            setToastMessage("Please enter a valid bar weight.");
+            return;
+        }
+
+        saveCustomWorkout({
+            name: name.trim(),
+            icon: selectedIcon,
+            muscleGroups: selectedMuscles,
+            hasBarWeight,
+            barWeightKg: hasBarWeight ? barWeightValue : 0,
+        });
         router.back();
     };
 
@@ -181,7 +197,64 @@ export default function CreateWorkoutScreen() {
                         })}
                     </View>
                 </View>
+
+                <View
+                    style={{
+                        backgroundColor: colors.surfaceMuted,
+                        borderRadius: 14,
+                        padding: 14,
+                        gap: hasBarWeight ? 14 : 0,
+                    }}
+                >
+                    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                        <View style={{ flex: 1, gap: 2 }}>
+                            <Text style={{ color: colors.textPrimary, fontSize: 15, fontFamily: Fonts.bold }}>
+                                Has a bar?
+                            </Text>
+                            <Text style={{ color: colors.textSecondary, fontSize: 12, fontFamily: Fonts.regular }}>
+                                Barbell/Smith-machine lifts add the bar's own weight to what you log.
+                            </Text>
+                        </View>
+                        <Switch
+                            value={hasBarWeight}
+                            onValueChange={setHasBarWeight}
+                            trackColor={{ true: "#1263df", false: colors.border }}
+                            thumbColor="#ffffff"
+                        />
+                    </View>
+
+                    {hasBarWeight ? (
+                        <View style={{ gap: 8 }}>
+                            <Text style={{ color: colors.textPrimary, fontSize: 13, fontFamily: Fonts.medium }}>
+                                Default Bar Weight (kg)
+                            </Text>
+                            <TextInput
+                                value={barWeight}
+                                onChangeText={setBarWeight}
+                                placeholder="20"
+                                placeholderTextColor={colors.textSecondary}
+                                keyboardType="numeric"
+                                style={{
+                                    backgroundColor: colors.surface,
+                                    borderRadius: 14,
+                                    paddingHorizontal: 14,
+                                    paddingVertical: 12,
+                                    color: colors.textPrimary,
+                                    fontSize: 15,
+                                    fontFamily: Fonts.regular,
+                                }}
+                            />
+                        </View>
+                    ) : null}
+                </View>
             </ScrollView>
+
+            <Toast
+                visible={toastMessage !== null}
+                message={toastMessage ?? ""}
+                variant="error"
+                onHide={() => setToastMessage(null)}
+            />
         </SafeAreaView>
     );
 }

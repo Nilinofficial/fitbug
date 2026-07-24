@@ -1,4 +1,6 @@
+import { ASSUMED_SECONDS_PER_SET, estimateWorkoutCalories } from "@/algorithms/calorieAlgorithm";
 import { db } from "@/db/client";
+import { getProfile } from "@/db/profile";
 import { WorkoutExercise } from "@/types/workout";
 
 const deriveWorkoutTitle = (exerciseNames: string[]): string => {
@@ -6,6 +8,27 @@ const deriveWorkoutTitle = (exerciseNames: string[]): string => {
     if (unique.length === 0) return "Workout";
     if (unique.length === 1) return unique[0];
     return `${unique[0]} & ${unique[1]}`;
+};
+
+// Live-tracked exercises carry a real work/rest split; backfilled or
+// pre-migration ones default both columns to 0, in which case we fall back
+// to treating the old fixed per-set assumption as pure work time. This is
+// the one place that decision is made — every calorie read path below (and
+// getExerciseImprovements) goes through it.
+const estimateExerciseCalories = (
+    row: { totalReps: number; totalVolumeKg: number; totalSets: number; workSeconds: number; restSeconds: number },
+    bodyWeightKg: number
+): number => {
+    const hasLiveTiming = row.workSeconds > 0 || row.restSeconds > 0;
+    const workSeconds = hasLiveTiming ? row.workSeconds : row.totalSets * ASSUMED_SECONDS_PER_SET;
+    const restSeconds = hasLiveTiming ? row.restSeconds : 0;
+    return estimateWorkoutCalories({
+        totalVolumeKg: row.totalVolumeKg,
+        totalReps: row.totalReps,
+        workSeconds,
+        restSeconds,
+        bodyWeightKg,
+    });
 };
 
 export type WorkoutSummary = {
@@ -17,9 +40,12 @@ export type WorkoutSummary = {
     totalSets: number;
     totalReps: number;
     totalVolumeKg: number;
+    estimatedCalories: number;
 };
 
 export const getWorkoutHistory = (): WorkoutSummary[] => {
+    const bodyWeightKg = getProfile()?.weight_kg ?? 0;
+
     const workouts = db.getAllSync<{
         id: number;
         started_at: string;
@@ -28,31 +54,59 @@ export const getWorkoutHistory = (): WorkoutSummary[] => {
     }>("SELECT id, started_at, finished_at, duration_seconds FROM workouts ORDER BY started_at DESC");
 
     return workouts.map((workout) => {
-        const exerciseNames = db.getAllSync<{ name: string }>(
-            "SELECT name FROM workout_exercises WHERE workout_id = ?",
-            [workout.id]
-        );
-        const totals = db.getFirstSync<{
-            totalSets: number;
-            totalReps: number | null;
-            totalVolumeKg: number | null;
+        const exerciseRows = db.getAllSync<{
+            id: number;
+            name: string;
+            bar_weight_kg: number;
+            work_seconds: number;
+            rest_seconds: number;
         }>(
-            `SELECT COUNT(*) AS totalSets, SUM(ws.reps) AS totalReps, SUM(ws.weight_kg * ws.reps) AS totalVolumeKg
-             FROM workout_sets ws
-             JOIN workout_exercises we ON we.id = ws.workout_exercise_id
-             WHERE we.workout_id = ?`,
+            "SELECT id, name, bar_weight_kg, work_seconds, rest_seconds FROM workout_exercises WHERE workout_id = ?",
             [workout.id]
         );
 
+        let totalSets = 0;
+        let totalReps = 0;
+        let totalVolumeKg = 0;
+        let estimatedCalories = 0;
+
+        for (const exercise of exerciseRows) {
+            const sets = db.getAllSync<{ weight_kg: number; reps: number }>(
+                "SELECT weight_kg, reps FROM workout_sets WHERE workout_exercise_id = ?",
+                [exercise.id]
+            );
+
+            const exerciseReps = sets.reduce((sum, set) => sum + set.reps, 0);
+            const exerciseVolumeKg = sets.reduce(
+                (sum, set) => sum + (set.weight_kg + exercise.bar_weight_kg) * set.reps,
+                0
+            );
+
+            totalSets += sets.length;
+            totalReps += exerciseReps;
+            totalVolumeKg += exerciseVolumeKg;
+            estimatedCalories += estimateExerciseCalories(
+                {
+                    totalReps: exerciseReps,
+                    totalVolumeKg: exerciseVolumeKg,
+                    totalSets: sets.length,
+                    workSeconds: exercise.work_seconds,
+                    restSeconds: exercise.rest_seconds,
+                },
+                bodyWeightKg
+            );
+        }
+
         return {
             id: workout.id,
-            title: deriveWorkoutTitle(exerciseNames.map((e) => e.name)),
+            title: deriveWorkoutTitle(exerciseRows.map((e) => e.name)),
             startedAt: workout.started_at,
             finishedAt: workout.finished_at,
             durationMinutes: Math.round(workout.duration_seconds / 60),
-            totalSets: totals?.totalSets ?? 0,
-            totalReps: totals?.totalReps ?? 0,
-            totalVolumeKg: totals?.totalVolumeKg ?? 0,
+            totalSets,
+            totalReps,
+            totalVolumeKg,
+            estimatedCalories: Math.round(estimatedCalories),
         };
     });
 };
@@ -62,7 +116,12 @@ export type WorkoutDetailExercise = {
     name: string;
     equipment: string;
     muscle: string;
+    barWeightKg: number;
+    totalReps: number;
     totalVolumeKg: number;
+    workSeconds: number;
+    restSeconds: number;
+    estimatedCalories: number;
     sets: { setIndex: number; weightKg: number; reps: number }[];
 };
 
@@ -75,10 +134,13 @@ export type WorkoutDetail = {
     totalSets: number;
     totalReps: number;
     totalVolumeKg: number;
+    estimatedCalories: number;
     exercises: WorkoutDetailExercise[];
 };
 
 export const getWorkoutDetail = (id: number): WorkoutDetail | null => {
+    const bodyWeightKg = getProfile()?.weight_kg ?? 0;
+
     const workout = db.getFirstSync<{
         id: number;
         started_at: string;
@@ -93,8 +155,11 @@ export const getWorkoutDetail = (id: number): WorkoutDetail | null => {
         name: string;
         equipment: string;
         muscle: string;
+        bar_weight_kg: number;
+        work_seconds: number;
+        rest_seconds: number;
     }>(
-        "SELECT id, name, equipment, muscle FROM workout_exercises WHERE workout_id = ? ORDER BY id ASC",
+        "SELECT id, name, equipment, muscle, bar_weight_kg, work_seconds, rest_seconds FROM workout_exercises WHERE workout_id = ? ORDER BY id ASC",
         [id]
     );
 
@@ -104,12 +169,35 @@ export const getWorkoutDetail = (id: number): WorkoutDetail | null => {
             [exercise.id]
         );
 
+        const totalReps = sets.reduce((sum, set) => sum + set.reps, 0);
+        // Volume (used for calorie/1RM math) stays bar-inclusive, but each set
+        // row shows the raw plate weight the user actually typed in — the bar
+        // is called out once per exercise instead of baked into every number.
+        const totalVolumeKg = sets.reduce(
+            (sum, set) => sum + (set.weight_kg + exercise.bar_weight_kg) * set.reps,
+            0
+        );
+
         return {
             id: exercise.id,
             name: exercise.name,
             equipment: exercise.equipment,
             muscle: exercise.muscle,
-            totalVolumeKg: sets.reduce((sum, set) => sum + set.weight_kg * set.reps, 0),
+            barWeightKg: exercise.bar_weight_kg,
+            totalReps,
+            totalVolumeKg,
+            workSeconds: exercise.work_seconds,
+            restSeconds: exercise.rest_seconds,
+            estimatedCalories: estimateExerciseCalories(
+                {
+                    totalReps,
+                    totalVolumeKg,
+                    totalSets: sets.length,
+                    workSeconds: exercise.work_seconds,
+                    restSeconds: exercise.rest_seconds,
+                },
+                bodyWeightKg
+            ),
             sets: sets.map((set) => ({
                 setIndex: set.set_index,
                 weightKg: set.weight_kg,
@@ -119,11 +207,9 @@ export const getWorkoutDetail = (id: number): WorkoutDetail | null => {
     });
 
     const totalSets = exercises.reduce((sum, exercise) => sum + exercise.sets.length, 0);
-    const totalReps = exercises.reduce(
-        (sum, exercise) => sum + exercise.sets.reduce((setSum, set) => setSum + set.reps, 0),
-        0
-    );
+    const totalReps = exercises.reduce((sum, exercise) => sum + exercise.totalReps, 0);
     const totalVolumeKg = exercises.reduce((sum, exercise) => sum + exercise.totalVolumeKg, 0);
+    const estimatedCalories = exercises.reduce((sum, exercise) => sum + exercise.estimatedCalories, 0);
 
     return {
         id: workout.id,
@@ -134,99 +220,207 @@ export const getWorkoutDetail = (id: number): WorkoutDetail | null => {
         totalSets,
         totalReps,
         totalVolumeKg,
+        estimatedCalories,
         exercises,
     };
 };
 
-export type WorkoutCalorieInput = {
+export type WorkoutCalorieSummary = {
     startedAt: string;
-    durationMinutes: number;
-    totalVolumeKg: number;
-    totalReps: number;
+    estimatedCalories: number;
 };
 
-export const getWorkoutsSince = (sinceISO: string): WorkoutCalorieInput[] => {
+export const getWorkoutsSince = (sinceISO: string): WorkoutCalorieSummary[] => {
+    const bodyWeightKg = getProfile()?.weight_kg ?? 0;
+
     const workouts = db.getAllSync<{
         id: number;
         started_at: string;
-        duration_seconds: number;
-    }>("SELECT id, started_at, duration_seconds FROM workouts WHERE started_at >= ?", [sinceISO]);
+    }>("SELECT id, started_at FROM workouts WHERE started_at >= ?", [sinceISO]);
 
     return workouts.map((workout) => {
-        const totals = db.getFirstSync<{
-            totalReps: number | null;
-            totalVolumeKg: number | null;
+        const exerciseRows = db.getAllSync<{
+            id: number;
+            bar_weight_kg: number;
+            work_seconds: number;
+            rest_seconds: number;
         }>(
-            `SELECT SUM(ws.reps) AS totalReps, SUM(ws.weight_kg * ws.reps) AS totalVolumeKg
-             FROM workout_sets ws
-             JOIN workout_exercises we ON we.id = ws.workout_exercise_id
-             WHERE we.workout_id = ?`,
+            "SELECT id, bar_weight_kg, work_seconds, rest_seconds FROM workout_exercises WHERE workout_id = ?",
             [workout.id]
         );
 
+        let estimatedCalories = 0;
+        for (const exercise of exerciseRows) {
+            const sets = db.getAllSync<{ weight_kg: number; reps: number }>(
+                "SELECT weight_kg, reps FROM workout_sets WHERE workout_exercise_id = ?",
+                [exercise.id]
+            );
+            const totalReps = sets.reduce((sum, set) => sum + set.reps, 0);
+            const totalVolumeKg = sets.reduce(
+                (sum, set) => sum + (set.weight_kg + exercise.bar_weight_kg) * set.reps,
+                0
+            );
+            estimatedCalories += estimateExerciseCalories(
+                {
+                    totalReps,
+                    totalVolumeKg,
+                    totalSets: sets.length,
+                    workSeconds: exercise.work_seconds,
+                    restSeconds: exercise.rest_seconds,
+                },
+                bodyWeightKg
+            );
+        }
+
         return {
             startedAt: workout.started_at,
-            durationMinutes: Math.round(workout.duration_seconds / 60),
-            totalVolumeKg: totals?.totalVolumeKg ?? 0,
-            totalReps: totals?.totalReps ?? 0,
+            estimatedCalories: Math.round(estimatedCalories),
         };
     });
 };
 
-export type PersonalRecordRow = {
+export type ExerciseImprovement = {
+    workoutId: number;
+    workoutExerciseId: number;
     name: string;
     equipment: string;
     muscle: string;
-    weight_kg: number;
-    reps: number;
-    finished_at: string;
+    finishedAt: string;
+    estimatedCalories: number;
+    previousCalories: number;
+    totalVolumeKg: number;
+    totalReps: number;
+    topSetWeightKg: number;
+    topSetReps: number;
 };
 
-export const getTopPersonalRecords = (limit = 2): PersonalRecordRow[] => {
-    return db.getAllSync<PersonalRecordRow>(
-        `WITH ranked AS (
-           SELECT
-             we.name AS name,
-             we.equipment AS equipment,
-             we.muscle AS muscle,
-             ws.weight_kg AS weight_kg,
-             ws.reps AS reps,
-             w.finished_at AS finished_at,
-             ROW_NUMBER() OVER (
-               PARTITION BY we.name
-               ORDER BY ws.weight_kg DESC, ws.reps DESC
-             ) AS rn
-           FROM workout_sets ws
-           JOIN workout_exercises we ON we.id = ws.workout_exercise_id
-           JOIN workouts w ON w.id = we.workout_id
-         )
-         SELECT name, equipment, muscle, weight_kg, reps, finished_at
-         FROM ranked
-         WHERE rn = 1
-         ORDER BY weight_kg DESC
-         LIMIT ?;`,
-        [limit]
+/**
+ * An "improvement" is a logged exercise instance that burned more estimated
+ * calories than the previous time that same exercise was logged (weight/reps
+ * went up enough to raise the estimate) — not simply the heaviest weight ever
+ * lifted, which unfairly favors big compound lifts over lighter accessory work.
+ */
+export const getExerciseImprovements = (limit = 10): ExerciseImprovement[] => {
+    const bodyWeightKg = getProfile()?.weight_kg ?? 0;
+    if (bodyWeightKg <= 0) return [];
+
+    const instances = db.getAllSync<{
+        workout_exercise_id: number;
+        workout_id: number;
+        name: string;
+        equipment: string;
+        muscle: string;
+        bar_weight_kg: number;
+        work_seconds: number;
+        rest_seconds: number;
+        finished_at: string;
+    }>(
+        `SELECT
+           we.id AS workout_exercise_id,
+           we.workout_id AS workout_id,
+           we.name AS name,
+           we.equipment AS equipment,
+           we.muscle AS muscle,
+           we.bar_weight_kg AS bar_weight_kg,
+           we.work_seconds AS work_seconds,
+           we.rest_seconds AS rest_seconds,
+           w.finished_at AS finished_at
+         FROM workout_exercises we
+         JOIN workouts w ON w.id = we.workout_id
+         ORDER BY we.name ASC, w.started_at ASC`
     );
+
+    const improvements: ExerciseImprovement[] = [];
+    const previousCaloriesByName = new Map<string, number>();
+
+    for (const instance of instances) {
+        const sets = db.getAllSync<{ weight_kg: number; reps: number }>(
+            "SELECT weight_kg, reps FROM workout_sets WHERE workout_exercise_id = ?",
+            [instance.workout_exercise_id]
+        );
+        if (sets.length === 0) continue;
+
+        const totalReps = sets.reduce((sum, set) => sum + set.reps, 0);
+        const totalVolumeKg = sets.reduce(
+            (sum, set) => sum + (set.weight_kg + instance.bar_weight_kg) * set.reps,
+            0
+        );
+
+        const estimatedCalories = estimateExerciseCalories(
+            {
+                totalReps,
+                totalVolumeKg,
+                totalSets: sets.length,
+                workSeconds: instance.work_seconds,
+                restSeconds: instance.rest_seconds,
+            },
+            bodyWeightKg
+        );
+
+        const previousCalories = previousCaloriesByName.get(instance.name);
+        if (previousCalories !== undefined && estimatedCalories > previousCalories) {
+            const topSet = sets.reduce(
+                (best, set) => {
+                    const weightKg = set.weight_kg + instance.bar_weight_kg;
+                    return weightKg > best.weightKg ? { weightKg, reps: set.reps } : best;
+                },
+                { weightKg: 0, reps: 0 }
+            );
+
+            improvements.push({
+                workoutId: instance.workout_id,
+                workoutExerciseId: instance.workout_exercise_id,
+                name: instance.name,
+                equipment: instance.equipment,
+                muscle: instance.muscle,
+                finishedAt: instance.finished_at,
+                estimatedCalories,
+                previousCalories,
+                totalVolumeKg,
+                totalReps,
+                topSetWeightKg: topSet.weightKg,
+                topSetReps: topSet.reps,
+            });
+        }
+
+        previousCaloriesByName.set(instance.name, estimatedCalories);
+    }
+
+    return improvements
+        .sort((a, b) => new Date(b.finishedAt).getTime() - new Date(a.finishedAt).getTime())
+        .slice(0, limit);
 };
 
 type SaveWorkoutInput = {
-    startedAt: number;
+    // The moment the workout is being logged as complete — "now" for a live
+    // entry, or a chosen time-of-day on a past date for a backfilled one.
     finishedAt: number;
     exercises: WorkoutExercise[];
 };
 
-export const saveWorkout = ({ startedAt, finishedAt, exercises }: SaveWorkoutInput) => {
+export const saveWorkout = ({ finishedAt, exercises }: SaveWorkoutInput) => {
     const validExercises = exercises
         .map((exercise) => ({
             ...exercise,
-            sets: exercise.sets.filter((set) => !(set.weight === 0 && set.reps === 0)),
+            // A set with 0 reps was never actually performed, regardless of what
+            // weight was dialed in.
+            sets: exercise.sets.filter((set) => set.reps > 0),
         }))
         .filter((exercise) => exercise.sets.length > 0);
 
     if (validExercises.length === 0) return;
 
+    // Duration prefers real work/rest timing from the live toggle when any was
+    // recorded; backfilled entries (no live session, workSeconds/restSeconds
+    // both 0) fall back to the old fixed per-set assumption.
+    const totalWorkSeconds = validExercises.reduce((sum, exercise) => sum + exercise.workSeconds, 0);
+    const totalRestSeconds = validExercises.reduce((sum, exercise) => sum + exercise.restSeconds, 0);
+    const hasLiveTiming = totalWorkSeconds > 0 || totalRestSeconds > 0;
+    const totalSets = validExercises.reduce((sum, exercise) => sum + exercise.sets.length, 0);
+    const durationSeconds = hasLiveTiming ? totalWorkSeconds + totalRestSeconds : totalSets * ASSUMED_SECONDS_PER_SET;
+    const startedAt = finishedAt - durationSeconds * 1000;
+
     db.withTransactionSync(() => {
-        const durationSeconds = Math.floor((finishedAt - startedAt) / 1000);
         db.runSync(
             "INSERT INTO workouts (started_at, finished_at, duration_seconds) VALUES (?, ?, ?)",
             [new Date(startedAt).toISOString(), new Date(finishedAt).toISOString(), durationSeconds]
@@ -235,8 +429,17 @@ export const saveWorkout = ({ startedAt, finishedAt, exercises }: SaveWorkoutInp
 
         for (const exercise of validExercises) {
             db.runSync(
-                "INSERT INTO workout_exercises (workout_id, template_id, name, equipment, muscle) VALUES (?, ?, ?, ?, ?)",
-                [workoutId, exercise.templateId, exercise.name, exercise.equipment, exercise.muscle]
+                "INSERT INTO workout_exercises (workout_id, template_id, name, equipment, muscle, bar_weight_kg, work_seconds, rest_seconds) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                [
+                    workoutId,
+                    exercise.templateId,
+                    exercise.name,
+                    exercise.equipment,
+                    exercise.muscle,
+                    exercise.barWeightKg,
+                    Math.max(0, Math.round(exercise.workSeconds)),
+                    Math.max(0, Math.round(exercise.restSeconds)),
+                ]
             );
             const exerciseId = db.getFirstSync<{ id: number }>("SELECT last_insert_rowid() as id")!.id;
 

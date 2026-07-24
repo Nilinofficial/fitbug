@@ -1,4 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
+import * as DocumentPicker from "expo-document-picker";
+import { File } from "expo-file-system";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useState } from "react";
@@ -6,13 +8,15 @@ import { Linking, Modal, Pressable, ScrollView, Text, TextInput, View } from "re
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import logo from "@/assets/images/logo.png";
+import ConfirmDialog from "@/components/custom/ConfirmDialog";
 import TimeStepper from "@/components/custom/TimeStepper";
 import Toast from "@/components/custom/Toast";
 import { Fonts } from "@/constants/fonts";
 import { Spacing } from "@/constants/spacing";
-import { Gender, Goal, saveProfile } from "@/db/profile";
+import { BackupData, importAllData } from "@/db/backup";
+import { Gender, getProfile, Goal, saveProfile } from "@/db/profile";
 import { formatReminderTime } from "@/lib/format";
-import { requestNotificationPermission, scheduleGymReminder } from "@/notifications/reminderNotifications";
+import { cancelGymReminder, requestNotificationPermission, scheduleGymReminder } from "@/notifications/reminderNotifications";
 import { useAppTheme } from "@/theme/ThemeProvider";
 
 const MIN_AGE = 1;
@@ -47,9 +51,40 @@ export default function OnboardingScreen() {
     const [reminderMinute, setReminderMinute] = useState(0);
     const [timeEditorOpen, setTimeEditorOpen] = useState(false);
     const [toastMessage, setToastMessage] = useState<string | null>(null);
+    const [pendingImport, setPendingImport] = useState<BackupData | null>(null);
 
     const showError = (message: string) => {
         setToastMessage(message);
+    };
+
+    const handleImportBackup = async () => {
+        const result = await DocumentPicker.getDocumentAsync({ type: "application/json" });
+        if (result.canceled || !result.assets[0]) return;
+
+        try {
+            const file = new File(result.assets[0].uri);
+            const data = JSON.parse(file.textSync()) as BackupData;
+            setPendingImport(data);
+        } catch {
+            showError("That file doesn't look like a valid fitbug backup.");
+        }
+    };
+
+    const confirmImportBackup = async () => {
+        if (!pendingImport) return;
+        const data = pendingImport;
+        setPendingImport(null);
+
+        importAllData(data);
+        const restored = getProfile();
+        if (restored?.reminders_enabled) {
+            const granted = await requestNotificationPermission();
+            if (granted) await scheduleGymReminder(restored.reminder_time);
+        } else {
+            await cancelGymReminder();
+        }
+
+        router.replace("/");
     };
 
     const handleAdjustAge = (delta: number) => {
@@ -146,6 +181,16 @@ export default function OnboardingScreen() {
                             Let&apos;s personalize your journey to a healthier lifestyle.
                         </Text>
                     </View>
+
+                    <Pressable
+                        onPress={handleImportBackup}
+                        style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
+                    >
+                        <Ionicons name="cloud-upload-outline" size={16} color="#1263df" />
+                        <Text style={{ color: "#1263df", fontSize: 13, fontFamily: Fonts.medium }}>
+                            Already have a backup? Restore your data
+                        </Text>
+                    </Pressable>
                 </View>
 
                 <View
@@ -518,6 +563,16 @@ export default function OnboardingScreen() {
                 message={toastMessage ?? ""}
                 variant="error"
                 onHide={() => setToastMessage(null)}
+            />
+
+            <ConfirmDialog
+                visible={pendingImport !== null}
+                title="Restore data"
+                message="This will set up FitBug using your backup file. Your profile, workout history, and custom workouts will be restored. Continue?"
+                confirmLabel="Restore"
+                destructive={false}
+                onConfirm={confirmImportBackup}
+                onCancel={() => setPendingImport(null)}
             />
         </SafeAreaView>
     );

@@ -38,7 +38,10 @@ db.execSync(`
     template_id TEXT NOT NULL,
     name TEXT NOT NULL,
     equipment TEXT NOT NULL,
-    muscle TEXT NOT NULL
+    muscle TEXT NOT NULL,
+    bar_weight_kg REAL NOT NULL DEFAULT 0,
+    work_seconds INTEGER NOT NULL DEFAULT 0,
+    rest_seconds INTEGER NOT NULL DEFAULT 0
   );
   CREATE TABLE IF NOT EXISTS workout_sets (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -52,6 +55,8 @@ db.execSync(`
     name TEXT NOT NULL,
     icon TEXT NOT NULL,
     muscle_groups TEXT NOT NULL,
+    has_bar_weight INTEGER NOT NULL DEFAULT 0,
+    bar_weight_kg REAL NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL
   );
 `);
@@ -76,4 +81,24 @@ if (!profileColumnsAfterCreate.some((column) => column.name === "target_weight_k
 }
 if (!profileColumnsAfterCreate.some((column) => column.name === "goal")) {
     db.execSync("ALTER TABLE profile ADD COLUMN goal TEXT;");
+}
+
+// Additive migrations for installs that predate the bar-weight columns. Existing
+// logged exercises/custom workouts simply default to 0 (no retroactive guessing).
+const workoutExerciseColumns = db.getAllSync<{ name: string }>("PRAGMA table_info(workout_exercises)");
+if (!workoutExerciseColumns.some((column) => column.name === "bar_weight_kg")) {
+    db.execSync("ALTER TABLE workout_exercises ADD COLUMN bar_weight_kg REAL NOT NULL DEFAULT 0;");
+}
+if (!workoutExerciseColumns.some((column) => column.name === "work_seconds")) {
+    db.execSync("ALTER TABLE workout_exercises ADD COLUMN work_seconds INTEGER NOT NULL DEFAULT 0;");
+}
+if (!workoutExerciseColumns.some((column) => column.name === "rest_seconds")) {
+    db.execSync("ALTER TABLE workout_exercises ADD COLUMN rest_seconds INTEGER NOT NULL DEFAULT 0;");
+}
+const customWorkoutColumns = db.getAllSync<{ name: string }>("PRAGMA table_info(custom_workouts)");
+if (!customWorkoutColumns.some((column) => column.name === "has_bar_weight")) {
+    db.execSync("ALTER TABLE custom_workouts ADD COLUMN has_bar_weight INTEGER NOT NULL DEFAULT 0;");
+}
+if (!customWorkoutColumns.some((column) => column.name === "bar_weight_kg")) {
+    db.execSync("ALTER TABLE custom_workouts ADD COLUMN bar_weight_kg REAL NOT NULL DEFAULT 0;");
 }
